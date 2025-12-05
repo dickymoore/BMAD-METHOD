@@ -158,9 +158,41 @@ async function runTests() {
   console.log('');
 
   // ============================================================
-  // Test 5: TEA Agent Special Handling
+  // Test 5: Workflow command paths anchor to project root
   // ============================================================
-  console.log(`${colors.yellow}Test Suite 5: TEA Agent Compilation${colors.reset}\n`);
+  console.log(`${colors.yellow}Test Suite 5: Workflow Command Paths${colors.reset}\n`);
+
+  try {
+    const { WorkflowCommandGenerator } = require('../tools/cli/installers/lib/ide/shared/workflow-command-generator');
+    const generator = new WorkflowCommandGenerator('.bmad');
+
+    const workflow = {
+      name: 'workflow-init',
+      module: 'bmm',
+      description: 'Initialize workflows',
+      path: '.bmad/bmm/workflows/workflow-status/init/workflow.yaml', // installed path (relative)
+    };
+
+    const content = await generator.generateCommandContent(workflow, '');
+
+    assert(
+      content.includes('{project-root}/.bmad/core/tasks/workflow.xml'),
+      'workflow command uses project-root anchored core workflow path',
+    );
+    assert(
+      content.includes('{project-root}/.bmad/bmm/workflows/workflow-status/init/workflow.yaml'),
+      'workflow command uses project-root anchored workflow path',
+    );
+  } catch (error) {
+    assert(false, 'workflow command generator anchors paths', error.message);
+  }
+
+  console.log('');
+
+  // ============================================================
+  // Test 6: TEA Agent Special Handling
+  // ============================================================
+  console.log(`${colors.yellow}Test Suite 6: TEA Agent Compilation${colors.reset}\n`);
 
   try {
     const builder = new YamlXmlBuilder();

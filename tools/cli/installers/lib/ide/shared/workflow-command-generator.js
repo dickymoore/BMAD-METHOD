@@ -112,6 +112,12 @@ class WorkflowCommandGenerator {
     // To: {project-root}/{bmad_folder}/bmm/workflows/.../workflow.yaml
     let workflowPath = workflow.path;
 
+    // Helper: ensure paths are anchored to project root to avoid IDE relative-path confusion
+    const withProjectRoot = (p) => {
+      if (!p) return p;
+      return p.startsWith('{project-root}/') ? p : `{project-root}/${p}`;
+    };
+
     // Extract the relative path from source
     if (workflowPath.includes('/src/modules/')) {
       const match = workflowPath.match(/\/src\/modules\/(.+)/);
@@ -125,7 +131,12 @@ class WorkflowCommandGenerator {
       }
     }
 
-    const coreWorkflowPath = `${this.bmadFolderName}/core/tasks/workflow.xml`;
+    // If path is already pointing to installed location (e.g., ".bmad/bmm/workflows/..."),
+    // just prefix with project root for clarity.
+    workflowPath = withProjectRoot(workflowPath);
+
+    // Core workflow is always under the root BMAD folder (not module-scoped)
+    const coreWorkflowPath = withProjectRoot(`${this.bmadFolderName}/core/tasks/workflow.xml`);
 
     // Replace template variables
     return template
