@@ -158,6 +158,62 @@ async function runTests() {
   console.log('');
 
   // ============================================================
+  // Test 4: compileAgents preserves installed modules during IDE updates
+  // ============================================================
+  console.log(`${colors.yellow}Test Suite 4: Compile Agents IDE Update${colors.reset}\n`);
+
+  let tempRoot;
+  try {
+    const os = require('node:os');
+    const yaml = require('js-yaml');
+    const { Installer } = require('../tools/cli/installers/lib/core/installer');
+
+    // Create isolated temp project with minimal manifest and module
+    tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'bmad-compile-'));
+    const projectDir = path.join(tempRoot, 'project');
+    const bmadDir = path.join(projectDir, 'bmad');
+    const cfgDir = path.join(bmadDir, '_cfg');
+
+    await fs.ensureDir(cfgDir);
+    await fs.ensureDir(path.join(bmadDir, 'core')); // minimal module folder
+
+    // Write manifest with module + IDE to trigger IDE update path
+    const manifestData = {
+      installation: { version: 'test' },
+      modules: ['core'],
+      ides: ['cursor'],
+    };
+    await fs.writeFile(path.join(cfgDir, 'manifest.yaml'), yaml.dump(manifestData), 'utf8');
+
+    const installer = new Installer();
+
+    // Stub heavy operations
+    installer.rebuildAgentFiles = async () => {};
+    installer.reinstallCustomAgents = async () => ({ count: 0, agents: [] });
+    installer.buildStandaloneAgents = async () => {};
+
+    let selectedModules;
+    installer.ideManager.setup = async (ide, project, bmadPath, options) => {
+      selectedModules = options.selectedModules;
+      return { ide, project, bmadPath, options };
+    };
+
+    const result = await installer.compileAgents({ directory: projectDir, verbose: false });
+
+    assert(Array.isArray(selectedModules) && selectedModules.length === 1, 'compileAgents passes installedModules to IDE setup');
+    assert(selectedModules && selectedModules[0] === 'core', 'installedModules list comes from detected manifest modules');
+    assert(result.agentCount === 0 && result.taskCount === 0, 'compileAgents completes without rebuilding in minimal setup');
+  } catch (error) {
+    assert(false, 'compileAgents handles IDE updates with installed modules', error.message);
+  } finally {
+    if (tempRoot) {
+      await fs.remove(tempRoot);
+    }
+  }
+
+  console.log('');
+
+  // ============================================================
   // Test 5: TEA Agent Special Handling
   // ============================================================
   console.log(`${colors.yellow}Test Suite 5: TEA Agent Compilation${colors.reset}\n`);

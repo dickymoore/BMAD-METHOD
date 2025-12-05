@@ -1762,6 +1762,10 @@ If AgentVibes party mode is enabled, immediately trigger TTS with agent's voice:
         throw new Error(`BMAD not installed at ${bmadDir}`);
       }
 
+      // Detect existing installation details for IDE updates and manifest preservation
+      const existingInstall = await this.detector.detect(bmadDir);
+      const installedModules = existingInstall.modules?.map((m) => m.id) || [];
+
       let agentCount = 0;
       let taskCount = 0;
 
@@ -1821,8 +1825,8 @@ If AgentVibes party mode is enabled, immediately trigger TTS with agent's voice:
       // Custom agents are already added to manifests during individual installation
       // Only regenerate YAML manifest for IDE updates if needed
       const existingManifestPath = path.join(bmadDir, '_cfg', 'manifest.yaml');
-      let existingIdes = [];
-      if (await fs.pathExists(existingManifestPath)) {
+      let existingIdes = existingInstall.ides || [];
+      if (existingIdes.length === 0 && (await fs.pathExists(existingManifestPath))) {
         const manifestContent = await fs.readFile(existingManifestPath, 'utf8');
         const yaml = require('js-yaml');
         const manifest = yaml.load(manifestContent);
