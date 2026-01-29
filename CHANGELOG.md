@@ -1,5 +1,14 @@
 # Changelog
 
+## [6.0.0-Beta.4]
+
+### 🐛 Bug Fixes
+
+- **Activation steps formatting fix**: Fixed missing opening quote that caused infrequent menu rendering issues
+- **Custom module installation fix**: Added missing yaml require in manifest.js to fix custom module installation
+
+---
+
 ## [6.0.0-Beta.3]
 
 ### 🌟 Key Highlights
