@@ -1,5 +1,32 @@
 # Changelog
 
+## [6.0.0-Beta.3]
+
+### 🌟 Key Highlights
+
+1. **SDET Module Replaces TEA**: TEA module removed from core, SDET module added with "automate" workflow for test automation
+2. **Gemini CLI TOML Support**: IDE integration now supports the TOML config format used by Gemini CLI
+3. **File System Sprint Status**: Default project_key support for file-system based sprint status tracking
+
+### 🔧 Features & Improvements
+
+**Module Changes:**
+- **TEA Module Moved to External** (#1430, #1443): The TEA module is now external. SDET module added with a single "automate" workflow focused on test automation
+- **SDET Module**: New module with streamlined test automation capabilities
+
+**IDE Integration:**
+- **Gemini CLI TOML Format** (#1431): Previous update accidentally switched Gemini to md instead of toml.
+
+**Sprint Status:**
+- **Default project_key** (#1446): File-system based sprint status now uses a default project_key so certain LLMs do not complain
+
+### 🐛 Bug Fixes
+
+- **Quick-flow workflow path fix** (#1368): Fixed incorrect workflow_path in bmad-quick-flow/quick-spec steps (step-01, step-02, step-03) - changed from non-existent 'create-tech-spec' to correct 'quick-spec'
+- **PRD edit flow paths**: Fixed path references in PRD editing workflow
+- **Agent file handling**: Changes to prevent double agent files and use .agent.md file extensions
+- **README link fix**: Corrected broken documentation links
+
 ## [6.0.0-Beta.2]
 
 - Fix installer so commands match what is installed, centralize most ide into a central file instead of separate files for each ide.
