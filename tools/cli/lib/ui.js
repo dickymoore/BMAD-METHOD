@@ -344,6 +344,9 @@ class UI {
 
   /**
    * Prompt for tool/IDE selection (called after module configuration)
+   * Uses a split prompt approach:
+   *   1. Recommended tools - standard multiselect for 3 preferred tools
+   *   2. Additional tools - autocompleteMultiselect with search capability
    * @param {string} projectDir - Project directory to check for existing IDEs
    * @returns {Object} Tool configuration
    */
@@ -366,95 +369,190 @@ class UI {
     const preferredIdes = ideManager.getPreferredIdes();
     const otherIdes = ideManager.getOtherIdes();
 
-    // Build grouped options object for groupMultiselect
-    const groupedOptions = {};
-    const processedIdes = new Set();
-    const initialValues = [];
+    // Determine which configured IDEs are in "preferred" vs "other" categories
+    const configuredPreferred = configuredIdes.filter((id) => preferredIdes.some((ide) => ide.value === id));
+    const configuredOther = configuredIdes.filter((id) => otherIdes.some((ide) => ide.value === id));
 
-    // First, add previously configured IDEs, marked with ✅
-    if (configuredIdes.length > 0) {
-      const configuredGroup = [];
-      for (const ideValue of configuredIdes) {
-        // Skip empty or invalid IDE values
-        if (!ideValue || typeof ideValue !== 'string') {
-          continue;
-        }
-
-        // Find the IDE in either preferred or other lists
-        const preferredIde = preferredIdes.find((ide) => ide.value === ideValue);
-        const otherIde = otherIdes.find((ide) => ide.value === ideValue);
-        const ide = preferredIde || otherIde;
-
-        if (ide) {
-          configuredGroup.push({
-            label: `${ide.name} ✅`,
-            value: ide.value,
-          });
-          processedIdes.add(ide.value);
-          initialValues.push(ide.value); // Pre-select configured IDEs
-        } else {
-          // Warn about unrecognized IDE (but don't fail)
-          console.log(chalk.yellow(`⚠️  Previously configured IDE '${ideValue}' is no longer available`));
-        }
-      }
-      if (configuredGroup.length > 0) {
-        groupedOptions['Previously Configured'] = configuredGroup;
-      }
+    // Warn about previously configured tools that are no longer available
+    const allKnownValues = new Set([...preferredIdes, ...otherIdes].map((ide) => ide.value));
+    const unknownTools = configuredIdes.filter((id) => id && typeof id === 'string' && !allKnownValues.has(id));
+    if (unknownTools.length > 0) {
+      console.log(chalk.yellow(`⚠️  Previously configured tools are no longer available: ${unknownTools.join(', ')}`));
     }
 
-    // Add preferred tools (excluding already processed)
-    const remainingPreferred = preferredIdes.filter((ide) => !processedIdes.has(ide.value));
-    if (remainingPreferred.length > 0) {
-      groupedOptions['Recommended Tools'] = remainingPreferred.map((ide) => {
-        processedIdes.add(ide.value);
-        return {
-          label: `${ide.name} ⭐`,
-          value: ide.value,
-        };
+    // ─────────────────────────────────────────────────────────────────────────────
+    // UPGRADE PATH: If tools already configured, show all tools with configured at top
+    // ─────────────────────────────────────────────────────────────────────────────
+    if (configuredIdes.length > 0) {
+      const allTools = [...preferredIdes, ...otherIdes];
+
+      // Sort: configured tools first, then preferred, then others
+      const sortedTools = [
+        ...allTools.filter((ide) => configuredIdes.includes(ide.value)),
+        ...allTools.filter((ide) => !configuredIdes.includes(ide.value)),
+      ];
+
+      const upgradeOptions = sortedTools.map((ide) => {
+        const isConfigured = configuredIdes.includes(ide.value);
+        const isPreferred = preferredIdes.some((p) => p.value === ide.value);
+        let label = ide.name;
+        if (isPreferred) label += ' ⭐';
+        if (isConfigured) label += ' ✅';
+        return { label, value: ide.value };
+      });
+
+      // Sort initialValues to match display order
+      const sortedInitialValues = sortedTools.filter((ide) => configuredIdes.includes(ide.value)).map((ide) => ide.value);
+
+      const upgradeSelected = await prompts.autocompleteMultiselect({
+        message: 'Integrate with',
+        options: upgradeOptions,
+        initialValues: sortedInitialValues,
+        required: false,
+        maxItems: 8,
+      });
+
+      const selectedIdes = upgradeSelected || [];
+
+      if (selectedIdes.length === 0) {
+        console.log('');
+        const confirmNoTools = await prompts.confirm({
+          message: 'No tools selected. Continue without installing any tools?',
+          default: false,
+        });
+
+        if (!confirmNoTools) {
+          return this.promptToolSelection(projectDir);
+        }
+
+        return { ides: [], skipIde: true };
+      }
+
+      // Display selected tools
+      this.displaySelectedTools(selectedIdes, preferredIdes, allTools);
+
+      return { ides: selectedIdes, skipIde: false };
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // NEW INSTALL: Show recommended tools first with "Browse All" option
+    // ─────────────────────────────────────────────────────────────────────────────
+    const recommendedOptions = preferredIdes.map((ide) => {
+      const isConfigured = configuredPreferred.includes(ide.value);
+      return {
+        label: isConfigured ? `${ide.name} ⭐ ✅` : `${ide.name} ⭐`,
+        value: ide.value,
+      };
+    });
+
+    // Add "browse all" option at the end if there are additional tools
+    if (otherIdes.length > 0) {
+      const totalTools = preferredIdes.length + otherIdes.length;
+      recommendedOptions.push({
+        label: `→ Browse all supported tools (${totalTools} total)...`,
+        value: '__BROWSE_ALL__',
       });
     }
 
-    // Add other tools (excluding already processed)
-    const remainingOther = otherIdes.filter((ide) => !processedIdes.has(ide.value));
-    if (remainingOther.length > 0) {
-      groupedOptions['Additional Tools'] = remainingOther.map((ide) => ({
-        label: ide.name,
-        value: ide.value,
-      }));
-    }
+    // Pre-select previously configured preferred tools
+    const recommendedInitialValues = configuredPreferred.length > 0 ? configuredPreferred : undefined;
 
-    // Add standalone "None" option at the end
-    groupedOptions[' '] = [
-      {
-        label: '⚠ None - I am not installing any tools',
-        value: '__NONE__',
-      },
-    ];
-
-    let selectedIdes = [];
-
-    selectedIdes = await prompts.groupMultiselect({
-      message: `Select tools to configure ${chalk.dim('(↑/↓ navigates, SPACE toggles, ENTER to confirm)')}:`,
-      options: groupedOptions,
-      initialValues: initialValues.length > 0 ? initialValues : undefined,
-      required: true,
-      selectableGroups: false,
+    const recommendedSelected = await prompts.multiselect({
+      message: `Integrate with ${chalk.dim('(↑/↓ to navigate • SPACE: select • ENTER: confirm)')}:`,
+      options: recommendedOptions,
+      initialValues: recommendedInitialValues,
+      required: false,
     });
 
-    // If user selected both "__NONE__" and other tools, honor the "None" choice
-    if (selectedIdes && selectedIdes.includes('__NONE__') && selectedIdes.length > 1) {
-      console.log();
-      console.log(chalk.yellow('⚠️  "None - I am not installing any tools" was selected, so no tools will be configured.'));
-      console.log();
-      selectedIdes = [];
-    } else if (selectedIdes && selectedIdes.includes('__NONE__')) {
-      // Only "__NONE__" was selected
-      selectedIdes = [];
+    const selectedRecommended = recommendedSelected || [];
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // STEP 2: Handle "Browse All" selection - show additional tools if requested
+    // ─────────────────────────────────────────────────────────────────────────────
+    const wantsBrowseAll = selectedRecommended.includes('__BROWSE_ALL__');
+    const filteredRecommended = selectedRecommended.filter((v) => v !== '__BROWSE_ALL__');
+
+    // Show additional tools if:
+    // 1. User explicitly chose "Browse All", OR
+    // 2. User has previously configured "other" tools, OR
+    // 3. User selected no recommended tools (allow them to pick from other tools)
+    const showAdditionalTools = wantsBrowseAll || configuredOther.length > 0 || filteredRecommended.length === 0;
+
+    let selectedAdditionalOrAll = [];
+
+    if (showAdditionalTools) {
+      // Show ALL tools if:
+      // - User explicitly chose "Browse All", OR
+      // - User selected nothing from recommended (so they can pick from everything)
+      // Otherwise, show only "other" tools as additional options
+      const showAllTools = wantsBrowseAll || filteredRecommended.length === 0;
+      const toolsToShow = showAllTools ? [...preferredIdes, ...otherIdes] : otherIdes;
+
+      if (toolsToShow.length > 0) {
+        const allToolOptions = toolsToShow.map((ide) => {
+          const isConfigured = configuredIdes.includes(ide.value);
+          const isPreferred = preferredIdes.some((p) => p.value === ide.value);
+          let label = ide.name;
+          if (isPreferred) label += ' ⭐';
+          if (isConfigured) label += ' ✅';
+          return {
+            label,
+            value: ide.value,
+          };
+        });
+
+        // Pre-select: previously configured tools + any recommended tools already selected
+        const initialValues = [...configuredIdes, ...filteredRecommended].filter((v, i, arr) => arr.indexOf(v) === i); // dedupe
+
+        // Use "additional" only if user already selected some recommended tools
+        const isAdditional = !wantsBrowseAll && filteredRecommended.length > 0;
+
+        console.log('');
+        const selected = await prompts.autocompleteMultiselect({
+          message: isAdditional ? 'Select additional tools:' : 'Select tools:',
+          options: allToolOptions,
+          initialValues: initialValues.length > 0 ? initialValues : undefined,
+          required: false,
+          maxItems: 8,
+        });
+
+        selectedAdditionalOrAll = selected || [];
+      }
     }
 
+    // Combine selections:
+    // - If "Browse All" was used, the second prompt contains ALL selections
+    // - Otherwise, combine recommended + additional
+    const allSelectedIdes = wantsBrowseAll ? selectedAdditionalOrAll : [...filteredRecommended, ...selectedAdditionalOrAll];
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // STEP 3: Confirm if no tools selected
+    // ─────────────────────────────────────────────────────────────────────────────
+    if (allSelectedIdes.length === 0) {
+      console.log('');
+      const confirmNoTools = await prompts.confirm({
+        message: 'No tools selected. Continue without installing any tools?',
+        default: false,
+      });
+
+      if (!confirmNoTools) {
+        // User wants to select tools - recurse
+        return this.promptToolSelection(projectDir);
+      }
+
+      return {
+        ides: [],
+        skipIde: true,
+      };
+    }
+
+    // Display selected tools
+    const allTools = [...preferredIdes, ...otherIdes];
+    this.displaySelectedTools(allSelectedIdes, preferredIdes, allTools);
+
     return {
-      ides: selectedIdes || [],
-      skipIde: !selectedIdes || selectedIdes.length === 0,
+      ides: allSelectedIdes,
+      skipIde: allSelectedIdes.length === 0,
     };
   }
 
@@ -1654,6 +1752,27 @@ class UI {
     }
 
     console.log('');
+  }
+
+  /**
+   * Display list of selected tools after IDE selection
+   * @param {Array} selectedIdes - Array of selected IDE values
+   * @param {Array} preferredIdes - Array of preferred IDE objects
+   * @param {Array} allTools - Array of all tool objects
+   */
+  displaySelectedTools(selectedIdes, preferredIdes, allTools) {
+    if (selectedIdes.length === 0) return;
+
+    const preferredValues = new Set(preferredIdes.map((ide) => ide.value));
+
+    console.log('');
+    console.log(chalk.dim('  Selected tools:'));
+    for (const ideValue of selectedIdes) {
+      const tool = allTools.find((t) => t.value === ideValue);
+      const name = tool?.name || ideValue;
+      const marker = preferredValues.has(ideValue) ? ' ⭐' : '';
+      console.log(chalk.dim(`  • ${name}${marker}`));
+    }
   }
 }
 
