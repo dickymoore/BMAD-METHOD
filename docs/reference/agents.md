@@ -16,7 +16,7 @@ Notes:
 | Architect (Winston)         | `CA`, `IR`                         | Create Architecture, Implementation Readiness                                                       |
 | Scrum Master (Bob)          | `SP`, `CS`, `ER`, `CC`             | Sprint Planning, Create Story, Epic Retrospective, Correct Course                                   |
 | Developer (Amelia)          | `DS`, `CR`                         | Dev Story, Code Review                                                                              |
-| QA Engineer (Quinn)         | `qa`                               | Automate (generate tests for existing features)                                                     |
+| QA Engineer (Quinn)         | `QA`                               | Automate (generate tests for existing features)                                                     |
 | Quick Flow Solo Dev (Barry) | `QS`, `QD`, `CR`                   | Quick Spec, Quick Dev, Code Review                                                                  |
 | UX Designer (Sally)         | `CU`                               | Create UX Design                                                                                    |
 | Technical Writer (Paige)    | `DP`, `WD`, `US`, `MG`, `VD`, `EC` | Document Project, Write Document, Update Standards, Mermaid Generate, Validate Doc, Explain Concept |
