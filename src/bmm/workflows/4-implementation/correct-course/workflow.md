@@ -1,3 +1,19 @@
+---
+name: correct-course
+description: "Navigate significant changes during sprint execution by analyzing impact, proposing solutions, and routing for implementation"
+main_config: '{project-root}/_bmad/bmm/config.yaml'
+web_bundle: false
+---
+
+## Initialization
+- Load config from `{project-root}/_bmad/bmm/config.yaml`.
+- Resolve variables:
+  - `user_name`, `communication_language`, `user_skill_level`, `document_output_language`
+  - `planning_artifacts`, `implementation_artifacts`, `project_knowledge`
+  - `sprint_status`
+  - `default_output_file`
+  - `date` (system-generated)
+
 # Correct Course - Sprint Change Management Instructions
 
 <critical>Communicate all responses in {communication_language} and language MUST be tailored to {user_skill_level}</critical>

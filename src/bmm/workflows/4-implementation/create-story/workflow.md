@@ -1,3 +1,20 @@
+---
+name: create-story
+description: "Create the next user story from epics+stories with enhanced context analysis and direct ready-for-dev marking"
+main_config: '{project-root}/_bmad/bmm/config.yaml'
+web_bundle: false
+---
+
+## Initialization
+- Load config from `{project-root}/_bmad/bmm/config.yaml`.
+- Resolve variables:
+  - `user_name`, `communication_language`, `document_output_language`
+  - `planning_artifacts`, `implementation_artifacts`
+  - `story_dir`, `default_output_file`
+  - `sprint_status`, `epics_file`, `prd_file`, `architecture_file`, `ux_file`
+  - `project_context`
+  - `date` (system-generated)
+
 <workflow>
   <critical>Communicate all responses in {communication_language} and generate all documents in {document_output_language}</critical>
 

@@ -1,3 +1,19 @@
+---
+name: retrospective
+description: "Run after epic completion to review overall success, extract lessons learned, and explore if new information emerged that might impact the next epic"
+main_config: '{project-root}/_bmad/bmm/config.yaml'
+web_bundle: false
+---
+
+## Initialization
+- Load config from `{project-root}/_bmad/bmm/config.yaml`.
+- Resolve variables:
+  - `user_name`, `communication_language`, `user_skill_level`, `document_output_language`
+  - `planning_artifacts`, `implementation_artifacts`
+  - `sprint_status_file`, `story_directory`, `retrospectives_folder`
+  - `agent_manifest` (`{project-root}/_bmad/_config/agent-manifest.csv`)
+  - `date` (system-generated)
+
 # Retrospective - Epic Completion Review Instructions
 
 <critical>Communicate all responses in {communication_language} and language MUST be tailored to {user_skill_level}</critical>

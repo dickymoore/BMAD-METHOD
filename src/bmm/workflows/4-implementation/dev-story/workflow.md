@@ -1,3 +1,19 @@
+---
+name: dev-story
+description: "Execute a story by implementing tasks/subtasks, writing tests, validating, and updating the story file per acceptance criteria"
+main_config: '{project-root}/_bmad/bmm/config.yaml'
+web_bundle: false
+---
+
+## Initialization
+- Load config from `{project-root}/_bmad/bmm/config.yaml`.
+- Resolve variables:
+  - `user_name`, `communication_language`, `user_skill_level`, `document_output_language`
+  - `implementation_artifacts`, `story_dir`, `story_file`
+  - `sprint_status`
+  - `project_context`
+  - `date` (system-generated)
+
 <workflow>
   <critical>Communicate all responses in {communication_language} and language MUST be tailored to {user_skill_level}</critical>
   <critical>Generate all documents in {document_output_language}</critical>
