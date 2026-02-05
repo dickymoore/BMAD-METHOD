@@ -324,7 +324,7 @@ class BaseIdeSetup {
   }
 
   /**
-   * Recursively find workflow definition files
+   * Recursively find workflow files (workflow.yaml or workflow.md)
    * @param {string} dir - Directory to search
    * @returns {Array} List of workflow file info objects
    */
@@ -344,18 +344,22 @@ class BaseIdeSetup {
         // Recursively search subdirectories
         const subWorkflows = await this.findWorkflowFiles(fullPath);
         workflows.push(...subWorkflows);
-      } else if (entry.isFile() && entry.name === 'workflow.md') {
+      } else if (entry.isFile() && (entry.name === 'workflow.yaml' || entry.name === 'workflow.md')) {
         // Read workflow file to get name and standalone property
         try {
           const yaml = require('yaml');
           const content = await fs.readFile(fullPath, 'utf8');
           let workflowData = null;
 
-          const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
-          if (!frontmatterMatch) {
-            continue;
+          if (entry.name === 'workflow.yaml') {
+            workflowData = yaml.parse(content);
+          } else {
+            const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+            if (!frontmatterMatch) {
+              continue;
+            }
+            workflowData = yaml.parse(frontmatterMatch[1]);
           }
-          workflowData = yaml.parse(frontmatterMatch[1]);
 
           if (workflowData && workflowData.name) {
             // Workflows are standalone by default unless explicitly false
