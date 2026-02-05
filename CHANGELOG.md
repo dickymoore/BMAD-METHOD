@@ -366,7 +366,7 @@ Located in `src/modules/bmb/workflows/agent/data/`:
 
 **Monolithic to Sharded:**
 
-- **From**: Single `workflow.yaml` with `instructions.md`
+- **From**: Single workflow definition with `instructions.md`
 - **To**: Sharded `workflow.md` with individual step files
 - **Pattern**: Orient-first approach (understand before investigating)
 
