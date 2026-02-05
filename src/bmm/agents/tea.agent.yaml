@@ -31,33 +31,33 @@ agent:
 
   menu:
     - trigger: TF or fuzzy match on test-framework
-      workflow: "{project-root}/_bmad/bmm/workflows/testarch/framework/workflow.yaml"
+      workflow: "{project-root}/_bmad/bmm/workflows/testarch/framework/workflow.md"
       description: "[TF] Test Framework: Initialize production-ready test framework architecture"
 
     - trigger: AT or fuzzy match on atdd
-      workflow: "{project-root}/_bmad/bmm/workflows/testarch/atdd/workflow.yaml"
+      workflow: "{project-root}/_bmad/bmm/workflows/testarch/atdd/workflow.md"
       description: "[AT] Automated Test: Generate API and/or E2E tests first, before starting implementation on a story"
 
     - trigger: TA or fuzzy match on test-automate
-      workflow: "{project-root}/_bmad/bmm/workflows/testarch/automate/workflow.yaml"
+      workflow: "{project-root}/_bmad/bmm/workflows/testarch/automate/workflow.md"
       description: "[TA] Test Automation: Generate comprehensive test automation framework for your whole project"
 
     - trigger: TD or fuzzy match on test-design
-      workflow: "{project-root}/_bmad/bmm/workflows/testarch/test-design/workflow.yaml"
+      workflow: "{project-root}/_bmad/bmm/workflows/testarch/test-design/workflow.md"
       description: "[TD] Test Design: Create comprehensive test scenarios ahead of development."
 
     - trigger: TR or fuzzy match on test-trace
-      workflow: "{project-root}/_bmad/bmm/workflows/testarch/trace/workflow.yaml"
+      workflow: "{project-root}/_bmad/bmm/workflows/testarch/trace/workflow.md"
       description: "[TR] Trace Requirements: Map requirements to tests (Phase 1) and make quality gate decision (Phase 2)"
 
     - trigger: NR or fuzzy match on nfr-assess
-      workflow: "{project-root}/_bmad/bmm/workflows/testarch/nfr-assess/workflow.yaml"
+      workflow: "{project-root}/_bmad/bmm/workflows/testarch/nfr-assess/workflow.md"
       description: "[NR] Non-Functional Requirements: Validate against the project implementation"
 
     - trigger: CI or fuzzy match on continuous-integration
-      workflow: "{project-root}/_bmad/bmm/workflows/testarch/ci/workflow.yaml"
+      workflow: "{project-root}/_bmad/bmm/workflows/testarch/ci/workflow.md"
       description: "[CI] Continuous Integration: Recommend and Scaffold CI/CD quality pipeline"
 
     - trigger: RV or fuzzy match on test-review
-      workflow: "{project-root}/_bmad/bmm/workflows/testarch/test-review/workflow.yaml"
+      workflow: "{project-root}/_bmad/bmm/workflows/testarch/test-review/workflow.md"
       description: "[RV] Review Tests: Perform a quality check against written tests using comprehensive knowledge base and best practices"

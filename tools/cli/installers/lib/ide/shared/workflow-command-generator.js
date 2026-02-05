@@ -67,7 +67,7 @@ class WorkflowCommandGenerator {
 
     for (const workflow of allWorkflows) {
       const commandContent = await this.generateCommandContent(workflow, bmadDir);
-      // Calculate the relative workflow path (e.g., bmm/workflows/4-implementation/sprint-planning/workflow.yaml)
+      // Calculate the relative workflow path (e.g., bmm/workflows/4-implementation/sprint-planning/workflow.md)
       let workflowRelPath = workflow.path;
       // Remove _bmad/ prefix if present to get relative path from project root
       // Handle both absolute paths (/path/to/_bmad/...) and relative paths (_bmad/...)
@@ -125,8 +125,8 @@ class WorkflowCommandGenerator {
     const template = await fs.readFile(templatePath, 'utf8');
 
     // Convert source path to installed path
-    // From: /Users/.../src/bmm/workflows/.../workflow.yaml
-    // To: {project-root}/_bmad/bmm/workflows/.../workflow.yaml
+    // From: /Users/.../src/bmm/workflows/.../workflow.md
+    // To: {project-root}/_bmad/bmm/workflows/.../workflow.md
     let workflowPath = workflow.path;
 
     // Extract the relative path from source
@@ -210,9 +210,9 @@ class WorkflowCommandGenerator {
 ## Execution
 
 When running any workflow:
-1. LOAD {project-root}/${this.bmadFolderName}/core/tasks/workflow.xml
+1. LOAD {project-root}/${this.bmadFolderName}/core/tasks/workflow.md
 2. Pass the workflow path as 'workflow-config' parameter
-3. Follow workflow.xml instructions EXACTLY
+3. Follow workflow.md instructions EXACTLY
 4. Save outputs after EACH section
 
 ## Modes

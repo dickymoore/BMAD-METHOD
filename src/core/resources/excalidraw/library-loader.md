@@ -25,7 +25,7 @@ Will document how to use:
 ## Usage Example
 
 ```yaml
-# Future workflow.yaml structure
+# Future workflow.md structure
 libraries:
   - url: 'https://libraries.excalidraw.com/libraries/...'
     filter: ['aws', 'cloud']

@@ -71,7 +71,7 @@ Provides the **HOW** (universal knowledge) while agents provide the **WHAT** (do
 ### Example: Frame Expert (Technical Diagrams)
 
 ```yaml
-# workflows/excalidraw-diagrams/create-flowchart/workflow.yaml
+# workflows/excalidraw-diagrams/create-flowchart/workflow.md
 helpers: '{project-root}/_bmad/core/resources/excalidraw/excalidraw-helpers.md'
 json_validation: '{project-root}/_bmad/core/resources/excalidraw/validate-json-instructions.md'
 ```
@@ -98,7 +98,7 @@ flowchart:
 ### Example: Presentation Master (Creative Visuals)
 
 ```yaml
-# workflows/create-visual-metaphor/workflow.yaml
+# workflows/create-visual-metaphor/workflow.md
 helpers: '{project-root}/_bmad/core/resources/excalidraw/excalidraw-helpers.md'
 json_validation: '{project-root}/_bmad/core/resources/excalidraw/validate-json-instructions.md'
 ```
