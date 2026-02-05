@@ -159,7 +159,11 @@ class ManifestGenerator {
           // Recurse into subdirectories
           const newRelativePath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
           await findWorkflows(fullPath, newRelativePath);
-        } else if (entry.name === 'workflow.yaml' || entry.name === 'workflow.md') {
+        } else if (
+          entry.name === 'workflow.yaml' ||
+          entry.name === 'workflow.md' ||
+          (entry.name.startsWith('workflow-') && entry.name.endsWith('.md'))
+        ) {
           // Parse workflow file (both YAML and MD formats)
           if (debug) {
             console.log(`[DEBUG] Found workflow file: ${fullPath}`);

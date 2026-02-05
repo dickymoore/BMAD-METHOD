@@ -5,7 +5,6 @@ main_config: '{project-root}/_bmad/bmm/config.yaml'
 nextStep: './steps-c/step-01-init.md'
 validateWorkflow: './steps-v/step-v-01-discovery.md'
 editWorkflow: './steps-e/step-e-01-discovery.md'
-web_bundle: true
 ---
 
 # PRD Workflow (Tri-Modal)
