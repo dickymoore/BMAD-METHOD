@@ -291,7 +291,7 @@ editWorkflow: './steps-e/step-e-01-discovery.md'
 
 **2. External Workflow References:**
 - ✅ Party-mode workflow: Exists at `/src/core/workflows/party-mode/workflow.md`
-- ✅ Advanced-elicitation task: Exists at `/src/core/workflows/advanced-elicitation/workflow.xml`
+- ✅ Advanced-elicitation task: Exists at `/src/core/workflows/advanced-elicitation/workflow.md`
 
 **3. Directory Structure:**
 - ✅ Complete step architecture (all 3 modes)
