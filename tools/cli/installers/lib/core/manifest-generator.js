@@ -145,8 +145,8 @@ class ManifestGenerator {
           // Recurse into subdirectories
           const newRelativePath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
           await findWorkflows(fullPath, newRelativePath);
-        } else if (entry.name === 'workflow.yaml' || entry.name === 'workflow.md') {
-          // Parse workflow file (both YAML and MD formats)
+        } else if (entry.name === 'workflow.md') {
+          // Parse workflow file (MD with YAML frontmatter)
           if (debug) {
             console.log(`[DEBUG] Found workflow file: ${fullPath}`);
           }
@@ -155,21 +155,15 @@ class ManifestGenerator {
             const rawContent = await fs.readFile(fullPath, 'utf8');
             const content = rawContent.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
 
-            let workflow;
-            if (entry.name === 'workflow.yaml') {
-              // Parse YAML workflow
-              workflow = yaml.parse(content);
-            } else {
-              // Parse MD workflow with YAML frontmatter
-              const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
-              if (!frontmatterMatch) {
-                if (debug) {
-                  console.log(`[DEBUG] Skipped (no frontmatter): ${fullPath}`);
-                }
-                continue; // Skip MD files without frontmatter
+            // Parse MD workflow with YAML frontmatter
+            const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+            if (!frontmatterMatch) {
+              if (debug) {
+                console.log(`[DEBUG] Skipped (no frontmatter): ${fullPath}`);
               }
-              workflow = yaml.parse(frontmatterMatch[1]);
+              continue; // Skip MD files without frontmatter
             }
+            const workflow = yaml.parse(frontmatterMatch[1]);
 
             if (debug) {
               console.log(`[DEBUG] Parsed: name="${workflow.name}", description=${workflow.description ? 'OK' : 'MISSING'}`);
