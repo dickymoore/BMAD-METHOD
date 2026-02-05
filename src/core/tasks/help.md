@@ -49,13 +49,13 @@ Determine what was just completed:
    **Required items next** — List the next required workflow
    For each item show:
    - Workflow **name**
-   - **Command** (prefixed with `/`, e.g., `/bmad:example:build-prototype`)
+   - **Command** (use the catalog command name; present it in your platform's command format, e.g., `bmad-example-build-prototype`)
    - **Agent** title and display name from the CSV (e.g., "🎨 Alex (Designer)")
    - Brief **description**
 
    ### Additional response output guidance to convey:
    - Run each workflow in a **fresh context window**
-   - Load the agent using (`/` + `agent-command`), or run the workflow command directly
+   - Load the agent using the platform's command format for `agent-command`, or run the workflow command directly
    - For **validation workflows**: recommend using a different high-quality LLM if available
    - For conversational requests: match the user's tone while presenting clearly
 

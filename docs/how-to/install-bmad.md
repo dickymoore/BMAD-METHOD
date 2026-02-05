@@ -66,7 +66,7 @@ your-project/
 
 ## Verify Installation
 
-Run the `help` workflow (`/bmad-help` on most platforms) to verify everything works and see what to do next.
+Run the `help` workflow (`bmad-help` on most platforms) to verify everything works and see what to do next.
 
 **Latest from main branch:**
 ```bash

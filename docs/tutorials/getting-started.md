@@ -65,7 +65,7 @@ The installer creates two folders:
 - `_bmad/` — agents, workflows, tasks, and configuration
 - `_bmad-output/` — empty for now, but this is where your artifacts will be saved
 
-Open your AI IDE in the project folder. Run the `help` workflow (`/bmad-help` on most platforms) to see what to do next — it detects what you've completed and recommends the next step.
+Open your AI IDE in the project folder. Run the `help` workflow (`bmad-help` on most platforms) to see what to do next — it detects what you've completed and recommends the next step.
 
 :::caution[Fresh Chats]
 Always start a fresh chat for each workflow. This prevents context limitations from causing issues.

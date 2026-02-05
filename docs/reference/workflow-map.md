@@ -7,9 +7,9 @@ The BMad Method (BMM) is a module in the BMad Ecosystem, targeted at following t
 
 The rationale and concepts come from agile methodologies that have been used across the industry with great success as a mental framework.
 
-If at anytime you are unsure what to do, the `/bmad-help` command will help you stay on track or know what to do next. You can always refer to this for reference also - but /bmad-help is fully interactive and much quicker if you have already installed the BMadMethod. Additionally, if you are using different modules that have extended the BMad Method or added other complimentary non extension modules - the /bmad-help evolves to know all that is available to give you the best in the moment advice.
+If at anytime you are unsure what to do, the `bmad-help` command will help you stay on track or know what to do next. You can always refer to this for reference also - but `bmad-help` is fully interactive and much quicker if you have already installed the BMadMethod. Additionally, if you are using different modules that have extended the BMad Method or added other complimentary non extension modules - `bmad-help` evolves to know all that is available to give you the best in the moment advice.
 
-Final important note: Every workflow below can be run directly with your tool of choice via slash command or by loading an agent first and using the entry from the agents menu.
+Final important note: Every workflow below can be run directly with your tool of choice via command or by loading an agent first and using the entry from the agents menu.
 
 <iframe src="/workflow-map-diagram.html" width="100%" height="100%" frameborder="0" style="border-radius: 8px; border: 1px solid #334155; min-height: 900px;"></iframe>
 

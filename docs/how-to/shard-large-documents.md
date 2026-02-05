@@ -42,7 +42,7 @@ docs/
 ### 1. Run the Shard-Doc Tool
 
 ```bash
-/bmad:core:tools:shard-doc
+shard-doc
 ```
 
 ### 2. Follow the Interactive Process
