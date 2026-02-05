@@ -249,7 +249,7 @@ web_bundle: false
   </step>
 
   <step n="9" goal="Validate Content">
-    <invoke-task>Validate against checklist at {{validation}} using {_bmad}/core/tasks/validate-workflow.xml</invoke-task>
+    <invoke-task>Validate against checklist at {{validation}} using {_bmad}/core/tasks/validate-workflow.md</invoke-task>
   </step>
 
 </workflow>

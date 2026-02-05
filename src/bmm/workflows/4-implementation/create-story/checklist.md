@@ -33,7 +33,7 @@ This is a COMPETITION to create the **ULTIMATE story context** that makes LLM de
 
 ### **When Running from Create-Story Workflow:**
 
-- The `{project-root}/_bmad/core/tasks/validate-workflow.xml` framework will automatically:
+- The `{project-root}/_bmad/core/tasks/validate-workflow.md` framework will automatically:
   - Load this checklist file
   - Load the newly created story file (`{story_file_path}`)
   - Load workflow variables from `{installed_path}/workflow.md`
@@ -51,7 +51,7 @@ This is a COMPETITION to create the **ULTIMATE story context** that makes LLM de
 - **Story file**: The story file to review and improve
 - **Workflow variables**: From workflow.md (story_dir, output_folder, epics_file, etc.)
 - **Source documents**: Epics, architecture, etc. (discovered or provided)
-- **Validation framework**: `validate-workflow.xml` (handles checklist execution)
+- **Validation framework**: `validate-workflow.md` (handles checklist execution)
 
 ---
 
@@ -63,7 +63,7 @@ You will systematically re-do the entire story creation process, but with a crit
 
 1. **Load the workflow configuration**: `{installed_path}/workflow.md` for variable inclusion
 2. **Load the story file**: `{story_file_path}` (provided by user or discovered)
-3. **Load validation framework**: `{project-root}/_bmad/core/tasks/validate-workflow.xml`
+3. **Load validation framework**: `{project-root}/_bmad/core/tasks/validate-workflow.md`
 4. **Extract metadata**: epic_num, story_num, story_key, story_title from story file
 5. **Resolve all workflow variables**: story_dir, output_folder, epics_file, architecture_file, etc.
 6. **Understand current status**: What story implementation guidance is currently provided?
