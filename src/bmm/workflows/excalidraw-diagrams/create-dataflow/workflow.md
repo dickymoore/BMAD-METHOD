@@ -1,3 +1,20 @@
+---
+name: create-excalidraw-dataflow
+description: "Create data flow diagrams (DFD) in Excalidraw format"
+main_config: '{project-root}/_bmad/bmm/config.yaml'
+web_bundle: false
+---
+
+## Initialization
+- Load config from `{project-root}/_bmad/bmm/config.yaml`.
+- Resolve variables:
+  - `output_folder`
+  - `installed_path`
+  - `config_source`
+  - `helpers`
+  - `json_validation`
+  - `shared_path`
+
 # Create Data Flow Diagram - Workflow Instructions
 
 ```xml

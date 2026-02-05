@@ -214,7 +214,7 @@ Knowledge fragments referenced:
 
 # PHASE 2: QUALITY GATE DECISION
 
-**Note**: Phase 2 executes only if `enable_gate_decision: true` in workflow.yaml
+**Note**: Phase 2 executes only if `enable_gate_decision: true` in workflow.md
 
 ---
 

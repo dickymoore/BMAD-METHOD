@@ -1,3 +1,21 @@
+---
+name: document-project
+description: "Analyzes and documents brownfield projects by scanning codebase, architecture, and patterns to create comprehensive reference documentation for AI-assisted development"
+main_config: '{project-root}/_bmad/bmm/config.yaml'
+web_bundle: false
+---
+
+## Initialization
+- Load config from `{project-root}/_bmad/bmm/config.yaml`.
+- Resolve variables:
+  - `user_name`
+  - `communication_language`
+  - `user_skill_level`
+  - `document_output_language`
+  - `output_folder`
+  - `installed_path`
+  - `config_source`
+
 # Document Project Workflow Router
 
 <critical>Communicate all responses in {communication_language}</critical>

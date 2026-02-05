@@ -1,3 +1,25 @@
+---
+name: testarch-trace
+description: "Generate requirements-to-tests traceability matrix, analyze coverage, and make quality gate decision (PASS/CONCERNS/FAIL/WAIVED)"
+main_config: '{project-root}/_bmad/bmm/config.yaml'
+web_bundle: false
+---
+
+## Initialization
+- Load config from `{project-root}/_bmad/bmm/config.yaml`.
+- Resolve variables:
+  - `user_name`
+  - `communication_language`
+  - `document_output_language`
+  - `output_folder`
+  - `installed_path`
+  - `config_source`
+  - `coverage_levels`
+  - `decision_mode`
+  - `gate_type`
+  - `source_dir`
+  - `test_dir`
+
 # Test Architect Workflow: Requirements Traceability & Quality Gate Decision
 
 **Workflow:** `testarch-trace`

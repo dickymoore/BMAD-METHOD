@@ -1,3 +1,20 @@
+---
+name: create-excalidraw-flowchart
+description: "Create a flowchart visualization in Excalidraw format for processes, pipelines, or logic flows"
+main_config: '{project-root}/_bmad/bmm/config.yaml'
+web_bundle: false
+---
+
+## Initialization
+- Load config from `{project-root}/_bmad/bmm/config.yaml`.
+- Resolve variables:
+  - `output_folder`
+  - `installed_path`
+  - `config_source`
+  - `helpers`
+  - `json_validation`
+  - `shared_path`
+
 # Create Flowchart - Workflow Instructions
 
 ```xml

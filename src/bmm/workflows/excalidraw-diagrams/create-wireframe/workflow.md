@@ -1,3 +1,20 @@
+---
+name: create-excalidraw-wireframe
+description: "Create website or app wireframes in Excalidraw format"
+main_config: '{project-root}/_bmad/bmm/config.yaml'
+web_bundle: false
+---
+
+## Initialization
+- Load config from `{project-root}/_bmad/bmm/config.yaml`.
+- Resolve variables:
+  - `output_folder`
+  - `installed_path`
+  - `config_source`
+  - `helpers`
+  - `json_validation`
+  - `shared_path`
+
 # Create Wireframe - Workflow Instructions
 
 ```xml
