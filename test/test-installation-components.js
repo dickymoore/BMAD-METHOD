@@ -197,7 +197,6 @@ async function runTests() {
     const searchRoots = [path.join(projectRoot, 'src'), path.join(projectRoot, 'docs')];
     const allowedExtensions = new Set(['.md', '.yaml', '.yml', '.xml']);
     const forbiddenRef = 'advanced-elicitation/workflow.xml';
-    const excludedFile = path.join(projectRoot, 'src', 'core', 'workflows', 'advanced-elicitation', 'workflow.xml');
     const offenders = [];
 
     const walk = async (dir) => {
@@ -209,9 +208,6 @@ async function runTests() {
           continue;
         }
         if (!allowedExtensions.has(path.extname(entry.name))) {
-          continue;
-        }
-        if (fullPath === excludedFile) {
           continue;
         }
         const content = await fs.readFile(fullPath, 'utf8');
@@ -259,9 +255,6 @@ async function runTests() {
         if (!allowedExtensions.has(path.extname(entry.name))) {
           continue;
         }
-        if (fullPath === excludedFile) {
-          continue;
-        }
         const content = await fs.readFile(fullPath, 'utf8');
         if (content.includes(forbiddenRef)) {
           offenders.push(path.relative(projectRoot, fullPath));
@@ -293,10 +286,6 @@ async function runTests() {
     const searchRoots = [path.join(projectRoot, 'src'), path.join(projectRoot, 'docs'), path.join(projectRoot, 'tools')];
     const allowedExtensions = new Set(['.md', '.yaml', '.yml', '.xml']);
     const forbiddenRef = 'workflow.xml';
-    const excludedFiles = new Set([
-      path.join(projectRoot, 'src', 'core', 'tasks', 'workflow.xml'),
-      path.join(projectRoot, 'src', 'core', 'workflows', 'advanced-elicitation', 'workflow.xml'),
-    ]);
     const offenders = [];
 
     const walk = async (dir) => {
@@ -308,9 +297,6 @@ async function runTests() {
           continue;
         }
         if (!allowedExtensions.has(path.extname(entry.name))) {
-          continue;
-        }
-        if (excludedFiles.has(fullPath)) {
           continue;
         }
         const content = await fs.readFile(fullPath, 'utf8');
