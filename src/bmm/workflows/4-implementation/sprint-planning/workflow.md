@@ -1,4 +1,23 @@
+---
+name: sprint-planning
+description: "Generate and manage the sprint status tracking file for Phase 4 implementation, extracting all epics and stories from epic files and tracking their status through the development lifecycle"
+main_config: '{project-root}/_bmad/bmm/config.yaml'
+web_bundle: false
+---
+
 # Sprint Planning - Sprint Status Generator
+
+## Initialization
+- Load config from `{project-root}/_bmad/bmm/config.yaml`.
+- Resolve variables:
+  - `user_name`, `communication_language`
+  - `project_name`, `project_key`
+  - `planning_artifacts`, `implementation_artifacts`
+  - `tracking_system`, `story_location`, `story_location_absolute`
+  - `epics_location`, `epics_pattern`
+  - `status_file` and `sprint_status_file` (both `{implementation_artifacts}/sprint-status.yaml`)
+  - `date` (system-generated)
+
 
 
 ## 📚 Document Discovery - Full Epic Loading

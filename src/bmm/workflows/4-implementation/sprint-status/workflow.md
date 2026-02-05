@@ -1,4 +1,21 @@
+---
+name: sprint-status
+description: "Summarize sprint-status.yaml, surface risks, and route to the right implementation workflow."
+main_config: '{project-root}/_bmad/bmm/config.yaml'
+web_bundle: false
+---
+
 # Sprint Status - Multi-Mode Service
+
+## Initialization
+- Load config from `{project-root}/_bmad/bmm/config.yaml`.
+- Resolve variables:
+  - `user_name`, `communication_language`, `document_output_language`
+  - `implementation_artifacts`, `planning_artifacts`
+  - `tracking_system`
+  - `sprint_status_file` (`{implementation_artifacts}/sprint-status.yaml`)
+  - `date` (system-generated, if needed)
+
 
 <critical>Modes: interactive (default), validate, data</critical>
 <critical>⚠️ ABSOLUTELY NO TIME ESTIMATES. Do NOT mention hours, days, weeks, or timelines.</critical>
