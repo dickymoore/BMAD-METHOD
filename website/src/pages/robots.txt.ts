@@ -1,5 +1,10 @@
-# BMAD Method Documentation
-# https://bmad-code-org.github.io/BMAD-METHOD/
+import type { APIRoute } from 'astro';
+
+export const GET: APIRoute = ({ site }) => {
+  const siteUrl = site?.href.replace(/\/$/, '') ?? '';
+
+  const body = `# BMAD Method Documentation
+# ${siteUrl}/
 #
 # This file controls web crawler access to the documentation site.
 
@@ -34,4 +39,10 @@ User-agent: cohere-ai
 Allow: /
 
 # Sitemap
-Sitemap: https://bmad-code-org.github.io/BMAD-METHOD/sitemap.xml
+Sitemap: ${siteUrl}/sitemap-index.xml
+`;
+
+  return new Response(body, {
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+  });
+};
