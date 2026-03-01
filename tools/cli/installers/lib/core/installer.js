@@ -1108,6 +1108,7 @@ class Installer {
           this.installedFiles.add(path.join(cfgDir, 'manifest.yaml'));
           this.installedFiles.add(path.join(cfgDir, 'workflow-manifest.csv'));
           this.installedFiles.add(path.join(cfgDir, 'agent-manifest.csv'));
+          this.installedFiles.add(path.join(cfgDir, 'skill-manifest.csv'));
           this.installedFiles.add(path.join(cfgDir, 'task-manifest.csv'));
 
           // Generate CSV manifests for workflows, agents, tasks AND ALL FILES with hashes
@@ -1136,7 +1137,7 @@ class Installer {
           addResult(
             'Manifests',
             'ok',
-            `${manifestStats.workflows} workflows, ${manifestStats.agents} agents, ${manifestStats.tasks} tasks, ${manifestStats.tools} tools`,
+            `${manifestStats.workflows} workflows, ${manifestStats.agents} agents, ${manifestStats.skills} skills, ${manifestStats.tasks} tasks, ${manifestStats.tools} tools`,
           );
 
           // Merge help catalogs
@@ -1869,7 +1870,7 @@ class Installer {
     this.installedFiles.add(outputPath);
 
     if (process.env.BMAD_VERBOSE_INSTALL === 'true') {
-      await prompts.log.message(`  Generated bmad-help.csv: ${allRows.length} workflows`);
+      await prompts.log.message(`  Generated bmad-help.csv: ${allRows.length} entries`);
     }
   }
 

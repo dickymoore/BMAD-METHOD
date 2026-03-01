@@ -7,6 +7,8 @@ sidebar:
 
 Use the `shard-doc` tool if you need to split large markdown files into smaller, organized files for better context management.
 
+`/bmad-shard-doc` remains the user-facing entry during the first native-skill migration wave. The compatibility task is still part of the transitional BMAD flow, while the canonical implementation lives in the installed native skill at `_bmad/core/skills/shard-doc/SKILL.md`. Codex exports the native skill directly and suppresses the duplicate task-derived artifact.
+
 :::caution[Deprecated]
 This is no longer recommended, and soon with updated workflows and most major LLMs and tools supporting subprocesses this will be unnecessary.
 :::

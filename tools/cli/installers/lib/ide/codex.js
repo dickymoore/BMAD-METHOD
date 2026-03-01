@@ -6,7 +6,7 @@ const { BaseIdeSetup } = require('./_base-ide');
 const { WorkflowCommandGenerator } = require('./shared/workflow-command-generator');
 const { AgentCommandGenerator } = require('./shared/agent-command-generator');
 const { TaskToolCommandGenerator } = require('./shared/task-tool-command-generator');
-const { getTasksFromBmad } = require('./shared/bmad-artifacts');
+const { getTasksFromBmad, getSkillsFromBmad } = require('./shared/bmad-artifacts');
 const { toDashPath, customAgentDashName } = require('./shared/path-utils');
 const prompts = require('../../../lib/prompts');
 
@@ -48,35 +48,17 @@ class CodexSetup extends BaseIdeSetup {
     const { artifacts: agentArtifacts } = await agentGen.collectAgentArtifacts(bmadDir, options.selectedModules || []);
     const agentCount = await this.writeSkillArtifacts(destDir, agentArtifacts, 'agent-launcher');
 
-    // Collect and write task skills
-    const tasks = await getTasksFromBmad(bmadDir, options.selectedModules || []);
-    const taskArtifacts = [];
-    for (const task of tasks) {
-      const content = await this.readAndProcessWithProject(
-        task.path,
-        {
-          module: task.module,
-          name: task.name,
-        },
-        projectDir,
-      );
-      taskArtifacts.push({
-        type: 'task',
-        name: task.name,
-        displayName: task.name,
-        module: task.module,
-        path: task.path,
-        sourcePath: task.path,
-        relativePath: path.join(task.module, 'tasks', `${task.name}.md`),
-        content,
-      });
-    }
+    // Collect and write native source skills
+    const nativeSkillArtifacts = await this.collectNativeSkillArtifacts(projectDir, bmadDir, options.selectedModules || []);
+    const nativeSkillCount = await this.writeSkillArtifacts(destDir, nativeSkillArtifacts, 'native-skill');
 
-    const ttGen = new TaskToolCommandGenerator(this.bmadFolderName);
-    const taskSkillArtifacts = taskArtifacts.map((artifact) => ({
-      ...artifact,
-      content: ttGen.generateCommandContent(artifact, artifact.type),
-    }));
+    // Collect and write task skills, excluding tasks that now have native skill sources
+    const taskSkillArtifacts = await this.collectTaskSkillArtifacts(
+      projectDir,
+      bmadDir,
+      options.selectedModules || [],
+      nativeSkillArtifacts,
+    );
     const tasksWritten = await this.writeSkillArtifacts(destDir, taskSkillArtifacts, 'task');
 
     // Collect and write workflow skills
@@ -84,11 +66,11 @@ class CodexSetup extends BaseIdeSetup {
     const { artifacts: workflowArtifacts } = await workflowGenerator.collectWorkflowArtifacts(bmadDir);
     const workflowCount = await this.writeSkillArtifacts(destDir, workflowArtifacts, 'workflow-command');
 
-    const written = agentCount + workflowCount + tasksWritten;
+    const written = agentCount + workflowCount + nativeSkillCount + tasksWritten;
 
     if (!options.silent) {
       await prompts.log.success(
-        `${this.name} configured: ${counts.agents} agents, ${counts.workflows} workflows, ${counts.tasks} tasks, ${written} skills → ${destDir}`,
+        `${this.name} configured: ${counts.agents} agents, ${counts.workflows} workflows, ${counts.tasks} task skills, ${counts.skills} native skills, ${written} skills → ${destDir}`,
       );
     }
 
@@ -144,7 +126,61 @@ class CodexSetup extends BaseIdeSetup {
       });
     }
 
+    const nativeSkillArtifacts = await this.collectNativeSkillArtifacts(projectDir, bmadDir, selectedModules);
+    artifacts.push(...nativeSkillArtifacts);
+
+    const taskSkillArtifacts = await this.collectTaskSkillArtifacts(projectDir, bmadDir, selectedModules, nativeSkillArtifacts);
+    artifacts.push(...taskSkillArtifacts);
+
+    const workflowGenerator = new WorkflowCommandGenerator(this.bmadFolderName);
+    const { artifacts: workflowArtifacts, counts: workflowCounts } = await workflowGenerator.collectWorkflowArtifacts(bmadDir);
+    artifacts.push(...workflowArtifacts);
+
+    return {
+      artifacts,
+      counts: {
+        agents: agentArtifacts.length,
+        tasks: taskSkillArtifacts.length,
+        skills: nativeSkillArtifacts.length,
+        workflows: workflowCounts.commands,
+        workflowLaunchers: workflowCounts.launchers,
+      },
+    };
+  }
+
+  async collectNativeSkillArtifacts(projectDir, bmadDir, selectedModules = []) {
+    const skills = await getSkillsFromBmad(bmadDir, selectedModules);
+    const artifacts = [];
+
+    for (const skill of skills) {
+      const content = await this.readAndProcessWithProject(
+        skill.path,
+        {
+          module: skill.module,
+          name: skill.name,
+        },
+        projectDir,
+      );
+
+      artifacts.push({
+        type: 'native-skill',
+        name: skill.name,
+        displayName: skill.name,
+        module: skill.module,
+        path: skill.path,
+        sourcePath: skill.path,
+        relativePath: path.join(skill.module, 'skills', skill.relativePath),
+        content,
+      });
+    }
+
+    return artifacts;
+  }
+
+  async collectTaskSkillArtifacts(projectDir, bmadDir, selectedModules = [], nativeSkillArtifacts = []) {
     const tasks = await getTasksFromBmad(bmadDir, selectedModules);
+    const taskArtifacts = [];
+
     for (const task of tasks) {
       const content = await this.readAndProcessWithProject(
         task.path,
@@ -154,8 +190,7 @@ class CodexSetup extends BaseIdeSetup {
         },
         projectDir,
       );
-
-      artifacts.push({
+      taskArtifacts.push({
         type: 'task',
         name: task.name,
         displayName: task.name,
@@ -167,19 +202,18 @@ class CodexSetup extends BaseIdeSetup {
       });
     }
 
-    const workflowGenerator = new WorkflowCommandGenerator(this.bmadFolderName);
-    const { artifacts: workflowArtifacts, counts: workflowCounts } = await workflowGenerator.collectWorkflowArtifacts(bmadDir);
-    artifacts.push(...workflowArtifacts);
+    const filteredTaskArtifacts = this.filterTaskArtifactsWithNativeSkills(taskArtifacts, nativeSkillArtifacts);
+    const ttGen = new TaskToolCommandGenerator(this.bmadFolderName);
 
-    return {
-      artifacts,
-      counts: {
-        agents: agentArtifacts.length,
-        tasks: tasks.length,
-        workflows: workflowCounts.commands,
-        workflowLaunchers: workflowCounts.launchers,
-      },
-    };
+    return filteredTaskArtifacts.map((artifact) => ({
+      ...artifact,
+      content: ttGen.generateCommandContent(artifact, artifact.type),
+    }));
+  }
+
+  filterTaskArtifactsWithNativeSkills(taskArtifacts, nativeSkillArtifacts = []) {
+    const nativeSkillNames = new Set(nativeSkillArtifacts.map((artifact) => toDashPath(artifact.relativePath)));
+    return taskArtifacts.filter((artifact) => !nativeSkillNames.has(toDashPath(artifact.relativePath)));
   }
 
   getCodexSkillsDir(projectDir) {

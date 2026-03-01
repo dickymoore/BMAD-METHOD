@@ -76,6 +76,26 @@ async function getTasksFromBmad(bmadDir, selectedModules = []) {
   return tasks;
 }
 
+async function getSkillsFromBmad(bmadDir, selectedModules = []) {
+  const skills = [];
+
+  if (await fs.pathExists(path.join(bmadDir, 'core', 'skills'))) {
+    const coreSkills = await getSkillsFromDir(path.join(bmadDir, 'core', 'skills'), 'core');
+    skills.push(...coreSkills);
+  }
+
+  for (const moduleName of selectedModules) {
+    const skillsPath = path.join(bmadDir, moduleName, 'skills');
+
+    if (await fs.pathExists(skillsPath)) {
+      const moduleSkills = await getSkillsFromDir(skillsPath, moduleName);
+      skills.push(...moduleSkills);
+    }
+  }
+
+  return skills;
+}
+
 async function getAgentsFromDir(dirPath, moduleName, relativePath = '') {
   const agents = [];
 
@@ -166,9 +186,50 @@ async function getTasksFromDir(dirPath, moduleName) {
   return tasks;
 }
 
+async function getSkillsFromDir(dirPath, moduleName, relativePath = '') {
+  const skills = [];
+
+  if (!(await fs.pathExists(dirPath))) {
+    return skills;
+  }
+
+  const entries = await fs.readdir(dirPath, { withFileTypes: true });
+
+  for (const entry of entries) {
+    if (!entry.name || typeof entry.name !== 'string') {
+      continue;
+    }
+
+    const fullPath = path.join(dirPath, entry.name);
+    const nextRelativePath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+
+    if (entry.isDirectory()) {
+      const subDirSkills = await getSkillsFromDir(fullPath, moduleName, nextRelativePath);
+      skills.push(...subDirSkills);
+      continue;
+    }
+
+    if (entry.name !== 'SKILL.md') {
+      continue;
+    }
+
+    const skillName = relativePath ? relativePath.split('/').join('-') : path.basename(dirPath);
+    skills.push({
+      path: fullPath,
+      name: skillName,
+      module: moduleName,
+      relativePath: relativePath ? `${relativePath}/SKILL.md` : 'SKILL.md',
+    });
+  }
+
+  return skills;
+}
+
 module.exports = {
   getAgentsFromBmad,
   getTasksFromBmad,
+  getSkillsFromBmad,
   getAgentsFromDir,
   getTasksFromDir,
+  getSkillsFromDir,
 };

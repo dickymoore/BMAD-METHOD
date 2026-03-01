@@ -5,7 +5,7 @@
  *
  * DASH-BASED NAMING (new standard):
  * - Agents: bmad-agent-module-name.md (with bmad-agent- prefix)
- * - Workflows/Tasks/Tools: bmad-module-name.md
+ * - Workflows/Tasks/Tools/Skills: bmad-module-name.md
  *
  * Example outputs:
  * - cis/agents/storymaster.md → bmad-agent-cis-storymaster.md
@@ -15,8 +15,9 @@
  */
 
 // Type segments - agents are included in naming, others are filtered out
-const TYPE_SEGMENTS = ['workflows', 'tasks', 'tools'];
+const TYPE_SEGMENTS = ['workflows', 'tasks', 'tools', 'skills'];
 const AGENT_SEGMENT = 'agents';
+const SKILL_SEGMENT = 'skills';
 
 // BMAD installation folder name - centralized constant for all installers
 const BMAD_FOLDER_NAME = '_bmad';
@@ -28,7 +29,7 @@ const BMAD_FOLDER_NAME = '_bmad';
  * Converts: 'core', 'agents', 'brainstorming' → 'bmad-agent-brainstorming.md' (core agents skip module name)
  *
  * @param {string} module - Module name (e.g., 'bmm', 'core')
- * @param {string} type - Artifact type ('agents', 'workflows', 'tasks', 'tools')
+ * @param {string} type - Artifact type ('agents', 'workflows', 'tasks', 'tools', 'skills')
  * @param {string} name - Artifact name (e.g., 'pm', 'brainstorming')
  * @returns {string} Flat filename like 'bmad-agent-bmm-pm.md' or 'bmad-bmm-correct-course.md'
  */
@@ -76,6 +77,12 @@ function toDashPath(relativePath) {
   if (type === 'agents' && parts.length > 3) {
     // Use the folder name (parts[2]) as the name, ignore the file name
     name = parts[2];
+  } else if (type === SKILL_SEGMENT) {
+    const skillParts = parts.slice(2);
+    if (skillParts.at(-1)?.toUpperCase() === 'SKILL') {
+      skillParts.pop();
+    }
+    name = skillParts.join('-');
   } else {
     // For non-nested or non-agents, join all parts after type
     name = parts.slice(2).join('-');

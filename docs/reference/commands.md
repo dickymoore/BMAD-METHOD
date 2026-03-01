@@ -130,6 +130,8 @@ Tasks and tools are standalone operations that do not require an agent or workfl
 | `/bmad-index-docs` | Index project documentation |
 | `/bmad-editorial-review-prose` | Review document prose quality |
 
+`/bmad-shard-doc` remains the single visible command during the first native-skill migration wave. BMAD still keeps the compatibility task in the transitional flow, while the canonical source-of-truth lives in the native `shard-doc` skill at `_bmad/core/skills/shard-doc/SKILL.md`. Codex exports that native skill directly and filters the duplicate task-derived artifact.
+
 ## Naming Convention
 
 Command names follow a predictable pattern.

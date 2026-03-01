@@ -16,6 +16,7 @@ class ManifestGenerator {
   constructor() {
     this.workflows = [];
     this.agents = [];
+    this.skills = [];
     this.tasks = [];
     this.tools = [];
     this.modules = [];
@@ -84,6 +85,9 @@ class ManifestGenerator {
     // Collect agent data - use updatedModules which includes all installed modules
     await this.collectAgents(this.updatedModules);
 
+    // Collect skill data
+    await this.collectSkills();
+
     // Collect task data
     await this.collectTasks(this.updatedModules);
 
@@ -95,6 +99,7 @@ class ManifestGenerator {
       await this.writeMainManifest(cfgDir),
       await this.writeWorkflowManifest(cfgDir),
       await this.writeAgentManifest(cfgDir),
+      await this.writeSkillManifest(cfgDir),
       await this.writeTaskManifest(cfgDir),
       await this.writeToolManifest(cfgDir),
       await this.writeFilesManifest(cfgDir),
@@ -103,6 +108,7 @@ class ManifestGenerator {
     return {
       workflows: this.workflows.length,
       agents: this.agents.length,
+      skills: this.skills.length,
       tasks: this.tasks.length,
       tools: this.tools.length,
       files: this.files.length,
@@ -380,6 +386,90 @@ class ManifestGenerator {
         this.tasks.push(...moduleTasks);
       }
     }
+  }
+
+  /**
+   * Collect all native skills from core and selected modules
+   * Scans the INSTALLED bmad directory, not the source
+   */
+  async collectSkills() {
+    this.skills = [];
+
+    for (const moduleName of this.updatedModules) {
+      const skillsPath = path.join(this.bmadDir, moduleName, 'skills');
+
+      if (await fs.pathExists(skillsPath)) {
+        const moduleSkills = await this.getSkillsFromDir(skillsPath, moduleName);
+        this.skills.push(...moduleSkills);
+      }
+    }
+  }
+
+  /**
+   * Recursively collect skills from a directory
+   */
+  async getSkillsFromDir(dirPath, moduleName, relativePath = '') {
+    const skills = [];
+    const entries = await fs.readdir(dirPath, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = path.join(dirPath, entry.name);
+      const nextRelativePath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+
+      if (entry.isDirectory()) {
+        const subDirSkills = await this.getSkillsFromDir(fullPath, moduleName, nextRelativePath);
+        skills.push(...subDirSkills);
+        continue;
+      }
+
+      if (entry.name !== 'SKILL.md') {
+        continue;
+      }
+
+      const content = await fs.readFile(fullPath, 'utf8');
+      const frontmatterMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+
+      let name = relativePath ? relativePath.split('/').join('-') : path.basename(dirPath);
+      let displayName = name;
+      let description = '';
+      let standalone = true;
+
+      if (frontmatterMatch) {
+        try {
+          const frontmatter = yaml.parse(frontmatterMatch[1]);
+          name = frontmatter.name || name;
+          displayName = frontmatter.displayName || frontmatter.name || name;
+          description = this.cleanForCSV(frontmatter.description || '');
+          standalone = frontmatter.standalone !== false && frontmatter.standalone !== 'false';
+        } catch {
+          standalone = true;
+        }
+      }
+
+      const skillRelativePath = relativePath ? `${relativePath}/SKILL.md` : 'SKILL.md';
+      const installPath =
+        moduleName === 'core'
+          ? `${this.bmadFolderName}/core/skills/${skillRelativePath}`
+          : `${this.bmadFolderName}/${moduleName}/skills/${skillRelativePath}`;
+
+      skills.push({
+        name,
+        displayName,
+        description,
+        module: moduleName,
+        path: installPath,
+        standalone,
+      });
+
+      this.files.push({
+        type: 'skill',
+        name,
+        module: moduleName,
+        path: installPath,
+      });
+    }
+
+    return skills;
   }
 
   /**
@@ -882,6 +972,49 @@ class ManifestGenerator {
 
     // Write all tasks
     for (const [, record] of allTasks) {
+      const row = [
+        escapeCsv(record.name),
+        escapeCsv(record.displayName),
+        escapeCsv(record.description),
+        escapeCsv(record.module),
+        escapeCsv(record.path),
+        escapeCsv(record.standalone),
+      ].join(',');
+      csvContent += row + '\n';
+    }
+
+    await fs.writeFile(csvPath, csvContent);
+    return csvPath;
+  }
+
+  /**
+   * Write skill manifest CSV
+   * @returns {string} Path to the manifest file
+   */
+  async writeSkillManifest(cfgDir) {
+    const csvPath = path.join(cfgDir, 'skill-manifest.csv');
+    const escapeCsv = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`;
+
+    let csvContent = 'name,displayName,description,module,path,standalone\n';
+    const currentSkills = [...this.skills]
+      .map((skill) => ({
+        name: skill.name,
+        displayName: skill.displayName,
+        description: skill.description,
+        module: skill.module,
+        path: skill.path,
+        standalone: skill.standalone,
+      }))
+      .sort((left, right) => {
+        const moduleCompare = left.module.localeCompare(right.module);
+        if (moduleCompare !== 0) {
+          return moduleCompare;
+        }
+
+        return left.name.localeCompare(right.name);
+      });
+
+    for (const record of currentSkills) {
       const row = [
         escapeCsv(record.name),
         escapeCsv(record.displayName),
