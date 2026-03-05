@@ -1,0 +1,26 @@
+module.exports = [
+  { label: 'Test Suite 1: Agent Compilation', run: require('./01-1-agent-compilation.js') },
+  { label: 'Test Suite 2: Customization Merging', run: require('./02-2-customization-merging.js') },
+  { label: 'Test Suite 3: Path Variable Resolution', run: require('./03-3-path-variable-resolution.js') },
+  { label: 'Test Suite 4: Sidecar Contract Validation', run: require('./04-4-sidecar-contract-validation.js') },
+  { label: 'Test Suite 4b: Shard-doc Sidecar Contract Validation', run: require('./05-4b-shard-doc-sidecar-contract-validation.js') },
+  { label: 'Test Suite 4c: Index-docs Sidecar Contract Validation', run: require('./06-4c-index-docs-sidecar-contract-validation.js') },
+  { label: 'Test Suite 5: Authority Split and Precedence', run: require('./07-5-authority-split-and-precedence.js') },
+  { label: 'Test Suite 6: Installer Fail-Fast Pre-Generation', run: require('./08-6-installer-fail-fast-pre-generation.js') },
+  { label: 'Test Suite 7: Canonical Alias Normalization Core', run: require('./09-7-canonical-alias-normalization-core.js') },
+  { label: 'Test Suite 8: Additive Task Manifest Projection', run: require('./10-8-additive-task-manifest-projection.js') },
+  { label: 'Test Suite 9: Canonical Alias Table Projection', run: require('./11-9-canonical-alias-table-projection.js') },
+  {
+    label: 'Test Suite 10: Help Catalog Projection + Command Label Contract',
+    run: require('./12-10-help-catalog-projection-command-label-contract.js'),
+  },
+  {
+    label: 'Test Suite 11: Export Projection from Sidecar Canonical ID',
+    run: require('./13-11-export-projection-from-sidecar-canonical-id.js'),
+  },
+  { label: 'Test Suite 12: QA Agent Compilation', run: require('./14-12-qa-agent-compilation.js') },
+  { label: 'Test Suite 13: Projection Consumer Compatibility', run: require('./15-13-projection-consumer-compatibility.js') },
+  { label: 'Test Suite 14: Deterministic Validation Artifact Suite', run: require('./16-14-deterministic-validation-artifact-suite.js') },
+  { label: 'Test Suite 15: Shard-doc Validation Artifact Suite', run: require('./17-15-shard-doc-validation-artifact-suite.js') },
+  { label: 'Test Suite 16: Index-docs Validation Artifact Suite', run: require('./18-16-index-docs-validation-artifact-suite.js') },
+];
