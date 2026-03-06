@@ -95,6 +95,10 @@ const {
   INDEX_DOCS_VALIDATION_ARTIFACT_REGISTRY,
   IndexDocsValidationHarness,
 } = require('../tools/cli/installers/lib/core/index-docs-validation-harness');
+const { runSkillMetadataFilenameAuthorityResolutionSuite } = require('./installation-components/07-5-authority-split-and-precedence');
+const { runHelpMetadataResolutionAmbiguityCheck } = require('./installation-components/16-14-deterministic-validation-artifact-suite');
+const { runShardDocMetadataResolutionAmbiguityCheck } = require('./installation-components/17-15-shard-doc-validation-artifact-suite');
+const { runIndexDocsMetadataResolutionAmbiguityCheck } = require('./installation-components/18-16-index-docs-validation-artifact-suite');
 
 // ANSI colors
 const colors = {
@@ -808,134 +812,15 @@ async function runTests() {
   // ============================================================
   // Test 4d: Skill Metadata Filename Authority Resolution
   // ============================================================
-  console.log(`${colors.yellow}Test Suite 4d: Skill Metadata Filename Authority Resolution${colors.reset}\n`);
-  try {
-    const convertedCapabilitySources = [
-      { label: 'help', sourceFilename: 'help.md', artifactFilename: 'help.artifact.yaml' },
-      { label: 'shard-doc', sourceFilename: 'shard-doc.xml', artifactFilename: 'shard-doc.artifact.yaml' },
-      { label: 'index-docs', sourceFilename: 'index-docs.xml', artifactFilename: 'index-docs.artifact.yaml' },
-    ];
-
-    const withResolverWorkspace = async (sourceFilename, callback) => {
-      const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), `bmad-metadata-authority-${sourceFilename.replaceAll(/\W+/g, '-')}-`));
-      try {
-        const tasksDir = path.join(tempRoot, 'src', 'core', 'tasks');
-        await fs.ensureDir(tasksDir);
-
-        const sourcePath = path.join(tasksDir, sourceFilename);
-        await fs.writeFile(sourcePath, '# source\n', 'utf8');
-
-        const sourceStem = path.basename(sourceFilename, path.extname(sourceFilename));
-        const skillDir = path.join(tasksDir, sourceStem);
-        await fs.ensureDir(skillDir);
-
-        await callback({
-          tempRoot,
-          tasksDir,
-          sourcePath,
-          skillDir,
-        });
-      } finally {
-        await fs.remove(tempRoot);
-      }
-    };
-
-    for (const sourceConfig of convertedCapabilitySources) {
-      const { label, sourceFilename, artifactFilename } = sourceConfig;
-
-      await withResolverWorkspace(sourceFilename, async ({ tempRoot, tasksDir, sourcePath, skillDir }) => {
-        await fs.writeFile(path.join(skillDir, 'skill-manifest.yaml'), 'canonicalId: canonical\n', 'utf8');
-        await fs.writeFile(path.join(skillDir, 'bmad-config.yaml'), 'canonicalId: bmad-config\n', 'utf8');
-        await fs.writeFile(path.join(skillDir, 'manifest.yaml'), 'canonicalId: manifest\n', 'utf8');
-        await fs.writeFile(path.join(tasksDir, artifactFilename), 'canonicalId: artifact\n', 'utf8');
-
-        const resolution = await resolveSkillMetadataAuthority({
-          sourceFilePath: sourcePath,
-          projectRoot: tempRoot,
-        });
-        assert(
-          resolution.resolvedFilename === 'skill-manifest.yaml' && resolution.derivationMode === 'canonical',
-          `${label} resolver prioritizes per-skill canonical skill-manifest.yaml over legacy metadata files`,
-        );
-      });
-
-      await withResolverWorkspace(sourceFilename, async ({ tempRoot, tasksDir, sourcePath, skillDir }) => {
-        await fs.writeFile(path.join(skillDir, 'bmad-config.yaml'), 'canonicalId: bmad-config\n', 'utf8');
-        await fs.writeFile(path.join(skillDir, 'manifest.yaml'), 'canonicalId: manifest\n', 'utf8');
-        await fs.writeFile(path.join(tasksDir, artifactFilename), 'canonicalId: artifact\n', 'utf8');
-
-        const resolution = await resolveSkillMetadataAuthority({
-          sourceFilePath: sourcePath,
-          projectRoot: tempRoot,
-        });
-        assert(
-          resolution.resolvedFilename === 'bmad-config.yaml' && resolution.derivationMode === 'legacy-fallback',
-          `${label} resolver falls back to bmad-config.yaml before manifest.yaml and *.artifact.yaml`,
-        );
-      });
-
-      await withResolverWorkspace(sourceFilename, async ({ tempRoot, tasksDir, sourcePath, skillDir }) => {
-        await fs.writeFile(path.join(skillDir, 'manifest.yaml'), 'canonicalId: manifest\n', 'utf8');
-        await fs.writeFile(path.join(tasksDir, artifactFilename), 'canonicalId: artifact\n', 'utf8');
-
-        const resolution = await resolveSkillMetadataAuthority({
-          sourceFilePath: sourcePath,
-          projectRoot: tempRoot,
-        });
-        assert(
-          resolution.resolvedFilename === 'manifest.yaml' && resolution.derivationMode === 'legacy-fallback',
-          `${label} resolver falls back to manifest.yaml before *.artifact.yaml`,
-        );
-      });
-
-      await withResolverWorkspace(sourceFilename, async ({ tempRoot, tasksDir, sourcePath }) => {
-        await fs.writeFile(path.join(tasksDir, artifactFilename), 'canonicalId: artifact\n', 'utf8');
-
-        const resolution = await resolveSkillMetadataAuthority({
-          sourceFilePath: sourcePath,
-          projectRoot: tempRoot,
-        });
-        assert(
-          resolution.resolvedFilename === artifactFilename && resolution.derivationMode === 'legacy-fallback',
-          `${label} resolver supports capability-scoped *.artifact.yaml fallback`,
-        );
-      });
-
-      await withResolverWorkspace(sourceFilename, async ({ tempRoot, tasksDir, sourcePath }) => {
-        await fs.writeFile(path.join(tasksDir, 'skill-manifest.yaml'), 'canonicalId: root-canonical\n', 'utf8');
-        await fs.writeFile(path.join(tasksDir, artifactFilename), 'canonicalId: artifact\n', 'utf8');
-
-        const resolution = await resolveSkillMetadataAuthority({
-          sourceFilePath: sourcePath,
-          projectRoot: tempRoot,
-        });
-        assert(
-          resolution.resolvedFilename === artifactFilename,
-          `${label} resolver does not treat root task-folder skill-manifest.yaml as per-skill canonical authority`,
-        );
-      });
-
-      await withResolverWorkspace(sourceFilename, async ({ tempRoot, tasksDir, sourcePath, skillDir }) => {
-        await fs.writeFile(path.join(tasksDir, 'bmad-config.yaml'), 'canonicalId: root-bmad-config\n', 'utf8');
-        await fs.writeFile(path.join(skillDir, 'bmad-config.yaml'), 'canonicalId: skill-bmad-config\n', 'utf8');
-
-        try {
-          await resolveSkillMetadataAuthority({
-            sourceFilePath: sourcePath,
-            projectRoot: tempRoot,
-          });
-          assert(false, `${label} resolver rejects ambiguous bmad-config.yaml coexistence across legacy locations`);
-        } catch (error) {
-          assert(
-            error.code === SKILL_METADATA_RESOLUTION_ERROR_CODES.AMBIGUOUS_MATCH,
-            `${label} resolver emits deterministic ambiguity code for bmad-config.yaml coexistence`,
-          );
-        }
-      });
-    }
-  } catch (error) {
-    assert(false, 'Skill metadata filename authority resolver suite setup', error.message);
-  }
+  await runSkillMetadataFilenameAuthorityResolutionSuite({
+    assert,
+    colors,
+    fs,
+    os,
+    path,
+    resolveSkillMetadataAuthority,
+    SKILL_METADATA_RESOLUTION_ERROR_CODES,
+  });
 
   console.log('');
 
@@ -5113,23 +4998,16 @@ async function runTests() {
       );
     }
 
-    await fs.writeFile(path.join(tempSourceTasksDir, 'bmad-config.yaml'), 'canonicalId: root-bmad-config\n', 'utf8');
-    await fs.ensureDir(path.join(tempSourceTasksDir, 'help'));
-    await fs.writeFile(path.join(tempSourceTasksDir, 'help', 'bmad-config.yaml'), 'canonicalId: help-bmad-config\n', 'utf8');
-    try {
-      await harness.generateValidationArtifacts({
-        projectDir: tempProjectRoot,
-        bmadDir: tempBmadDir,
-        bmadFolderName: '_bmad',
-        sourceMarkdownPath: path.join(tempSourceTasksDir, 'help.md'),
-      });
-      assert(false, 'Help validation harness normalizes metadata-resolution ambiguity into harness-native deterministic error');
-    } catch (error) {
-      assert(
-        error.code === HELP_VALIDATION_ERROR_CODES.METADATA_RESOLUTION_FAILED,
-        'Help validation harness emits deterministic metadata-resolution error code',
-      );
-    }
+    await runHelpMetadataResolutionAmbiguityCheck({
+      assert,
+      fs,
+      path,
+      harness,
+      tempProjectRoot,
+      tempBmadDir,
+      tempSourceTasksDir,
+      HELP_VALIDATION_ERROR_CODES,
+    });
   } catch (error) {
     assert(false, 'Deterministic validation artifact suite setup', error.message);
   } finally {
@@ -5567,23 +5445,16 @@ async function runTests() {
       );
     }
 
-    await fs.writeFile(path.join(tempSourceTasksDir, 'bmad-config.yaml'), 'canonicalId: root-bmad-config\n', 'utf8');
-    await fs.ensureDir(path.join(tempSourceTasksDir, 'shard-doc'));
-    await fs.writeFile(path.join(tempSourceTasksDir, 'shard-doc', 'bmad-config.yaml'), 'canonicalId: shard-doc-bmad-config\n', 'utf8');
-    try {
-      await harness.generateValidationArtifacts({
-        projectDir: tempProjectRoot,
-        bmadDir: tempBmadDir,
-        bmadFolderName: '_bmad',
-        sourceXmlPath: path.join(tempSourceTasksDir, 'shard-doc.xml'),
-      });
-      assert(false, 'Shard-doc validation harness normalizes metadata-resolution ambiguity into harness-native deterministic error');
-    } catch (error) {
-      assert(
-        error.code === SHARD_DOC_VALIDATION_ERROR_CODES.METADATA_RESOLUTION_FAILED,
-        'Shard-doc validation harness emits deterministic metadata-resolution error code',
-      );
-    }
+    await runShardDocMetadataResolutionAmbiguityCheck({
+      assert,
+      fs,
+      path,
+      harness,
+      tempProjectRoot,
+      tempBmadDir,
+      tempSourceTasksDir,
+      SHARD_DOC_VALIDATION_ERROR_CODES,
+    });
   } catch (error) {
     assert(false, 'Shard-doc validation artifact suite setup', error.message);
   } finally {
@@ -6022,23 +5893,16 @@ async function runTests() {
       );
     }
 
-    await fs.writeFile(path.join(tempSourceTasksDir, 'bmad-config.yaml'), 'canonicalId: root-bmad-config\n', 'utf8');
-    await fs.ensureDir(path.join(tempSourceTasksDir, 'index-docs'));
-    await fs.writeFile(path.join(tempSourceTasksDir, 'index-docs', 'bmad-config.yaml'), 'canonicalId: index-docs-bmad-config\n', 'utf8');
-    try {
-      await harness.generateValidationArtifacts({
-        projectDir: tempProjectRoot,
-        bmadDir: tempBmadDir,
-        bmadFolderName: '_bmad',
-        sourceXmlPath: path.join(tempSourceTasksDir, 'index-docs.xml'),
-      });
-      assert(false, 'Index-docs validation harness normalizes metadata-resolution ambiguity into harness-native deterministic error');
-    } catch (error) {
-      assert(
-        error.code === INDEX_DOCS_VALIDATION_ERROR_CODES.METADATA_RESOLUTION_FAILED,
-        'Index-docs validation harness emits deterministic metadata-resolution error code',
-      );
-    }
+    await runIndexDocsMetadataResolutionAmbiguityCheck({
+      assert,
+      fs,
+      path,
+      harness,
+      tempProjectRoot,
+      tempBmadDir,
+      tempSourceTasksDir,
+      INDEX_DOCS_VALIDATION_ERROR_CODES,
+    });
   } catch (error) {
     assert(false, 'Index-docs validation artifact suite setup', error.message);
   } finally {
