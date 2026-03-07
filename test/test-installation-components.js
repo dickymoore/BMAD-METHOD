@@ -72,7 +72,7 @@ async function createTestBmadFixture() {
   await fs.ensureDir(path.join(fixtureDir, 'core', 'agents'));
   await fs.writeFile(path.join(fixtureDir, 'core', 'agents', 'bmad-master.md'), minimalAgent);
   // Skill manifest so the installer uses 'bmad-master' as the canonical skill name
-  await fs.writeFile(path.join(fixtureDir, 'core', 'agents', 'skill-manifest.yaml'), 'bmad-master.md:\n  canonicalId: bmad-master\n');
+  await fs.writeFile(path.join(fixtureDir, 'core', 'agents', 'bmad-skill-manifest.yaml'), 'bmad-master.md:\n  canonicalId: bmad-master\n');
 
   // Minimal compiled agent for bmm module (tests use selectedModules: ['bmm'])
   await fs.ensureDir(path.join(fixtureDir, 'bmm', 'agents'));
@@ -91,7 +91,7 @@ async function createShardDocPrototypeFixture() {
   );
 
   await fs.writeFile(
-    path.join(fixtureDir, 'core', 'tasks', 'skill-manifest.yaml'),
+    path.join(fixtureDir, 'core', 'tasks', 'bmad-skill-manifest.yaml'),
     [
       'shard-doc.xml:',
       '  canonicalId: bmad-shard-doc',
