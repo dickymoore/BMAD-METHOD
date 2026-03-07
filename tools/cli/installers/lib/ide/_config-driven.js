@@ -27,7 +27,6 @@ class ConfigDrivenIdeSetup extends BaseIdeSetup {
     super(platformCode, platformConfig.name, platformConfig.preferred);
     this.platformConfig = platformConfig;
     this.installerConfig = platformConfig.installer || null;
-    this._manifestCache = new Map();
 
     // Set configDir from target_dir so base-class detect() works
     if (this.installerConfig?.target_dir) {
@@ -117,7 +116,6 @@ class ConfigDrivenIdeSetup extends BaseIdeSetup {
    */
   async installToTarget(projectDir, bmadDir, config, options) {
     const { target_dir, template_type, artifact_types } = config;
-    this._manifestCache = new Map();
 
     // Skip targets with explicitly empty artifact_types array
     // This prevents creating empty directories when no artifacts will be written
@@ -506,13 +504,13 @@ LOAD and execute from: {project-root}/{{bmadFolderName}}/{{path}}
     const sourceRef = this.resolveArtifactSourceRef(artifact, bmadDir);
     const duplicatePrototypeIds = await this.getPrototypeSkillIdsForArtifact(artifact, bmadDir, sourceRef);
     for (const prototypeId of duplicatePrototypeIds) {
-      if (!this.isSafeSkillFolderName(prototypeId)) continue;
       if (prototypeId === skillName) continue;
+      if (typeof prototypeId !== 'string' || !prototypeId.trim()) continue;
       const prototypeDir = path.join(targetPath, prototypeId);
       await this.ensureDir(prototypeDir);
       const sourceSkillContent = await this.readPrototypeSourceSkillContent(sourceRef, prototypeId);
-      const prototypeContent = sourceSkillContent ?? this.transformToSkillFormat(content, prototypeId);
-      await this.writeFile(path.join(prototypeDir, 'SKILL.md'), prototypeContent);
+      if (!sourceSkillContent) continue;
+      await this.writeFile(path.join(prototypeDir, 'SKILL.md'), sourceSkillContent);
     }
   }
 
@@ -526,11 +524,7 @@ LOAD and execute from: {project-root}/{{bmadFolderName}}/{{path}}
     const sourceRef = sourceRefOverride ?? this.resolveArtifactSourceRef(artifact, bmadDir);
     if (!sourceRef) return [];
 
-    let manifest = this._manifestCache.get(sourceRef.dirPath);
-    if (manifest === undefined) {
-      manifest = await loadSkillManifest(sourceRef.dirPath);
-      this._manifestCache.set(sourceRef.dirPath, manifest);
-    }
+    const manifest = await loadSkillManifest(sourceRef.dirPath);
     return getPrototypeIds(manifest, sourceRef.filename);
   }
 
@@ -542,38 +536,10 @@ LOAD and execute from: {project-root}/{{bmadFolderName}}/{{path}}
    * @returns {Promise<string|null>} Source SKILL.md content or null
    */
   async readPrototypeSourceSkillContent(sourceRef, prototypeId) {
-    if (!sourceRef || !this.isSafeSkillFolderName(prototypeId)) return null;
-
-    const resolvedSourceDir = path.resolve(sourceRef.dirPath);
-    const sourceSkillPath = path.resolve(resolvedSourceDir, prototypeId, 'SKILL.md');
-    const relativeToSourceDir = path.relative(resolvedSourceDir, sourceSkillPath);
-
-    if (
-      relativeToSourceDir === '..' ||
-      relativeToSourceDir.startsWith(`..${path.sep}`) ||
-      path.isAbsolute(relativeToSourceDir)
-    ) {
-      return null;
-    }
-
+    if (!sourceRef || typeof prototypeId !== 'string' || !prototypeId.trim()) return null;
+    const sourceSkillPath = path.join(sourceRef.dirPath, prototypeId, 'SKILL.md');
     if (!(await fs.pathExists(sourceSkillPath))) return null;
     return fs.readFile(sourceSkillPath, 'utf8');
-  }
-
-  /**
-   * Validate skill folder names used for source lookup.
-   * @param {string} skillId - Candidate skill ID
-   * @returns {boolean} True if safe to use as a folder name segment
-   */
-  isSafeSkillFolderName(skillId) {
-    return (
-      typeof skillId === 'string' &&
-      skillId.length > 0 &&
-      skillId !== '.' &&
-      skillId !== '..' &&
-      !skillId.includes('/') &&
-      !skillId.includes('\\')
-    );
   }
 
   /**
@@ -615,15 +581,8 @@ LOAD and execute from: {project-root}/{{bmadFolderName}}/{{path}}
     const filename = path.basename(normalized);
     if (!filename || filename === '.' || filename === '..') return null;
 
-    const resolvedBmadDir = path.resolve(bmadDir);
     const relativeDir = path.dirname(normalized);
-    const dirPath = relativeDir === '.' ? resolvedBmadDir : path.resolve(resolvedBmadDir, relativeDir);
-    const pathFromBmadRoot = path.relative(resolvedBmadDir, dirPath);
-
-    if (pathFromBmadRoot === '..' || pathFromBmadRoot.startsWith(`..${path.sep}`) || path.isAbsolute(pathFromBmadRoot)) {
-      return null;
-    }
-
+    const dirPath = relativeDir === '.' ? bmadDir : path.join(bmadDir, relativeDir);
     return { dirPath, filename };
   }
 
