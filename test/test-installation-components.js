@@ -922,8 +922,14 @@ async function runTests() {
     const codexCanonicalContent = await fs.readFile(codexCanonicalSkill, 'utf8');
     const codexPrototypeContent = await fs.readFile(codexPrototypeSkill, 'utf8');
     assert(codexCanonicalContent.includes('name: bmad-shard-doc'), 'Canonical shard-doc skill keeps canonical frontmatter name');
-    assert(codexPrototypeContent.includes('name: bmad-shard-doc-skill-prototype'), 'Prototype shard-doc skill uses prototype frontmatter name');
-    assert(codexPrototypeContent.includes('Prototype marker: source-authored-skill'), 'Prototype shard-doc skill is copied from source SKILL.md');
+    assert(
+      codexPrototypeContent.includes('name: bmad-shard-doc-skill-prototype'),
+      'Prototype shard-doc skill uses prototype frontmatter name',
+    );
+    assert(
+      codexPrototypeContent.includes('Prototype marker: source-authored-skill'),
+      'Prototype shard-doc skill is copied from source SKILL.md',
+    );
 
     const geminiResult = await ideManager.setup('gemini', tempGeminiProjectDir, installedBmadDir, {
       silent: true,
@@ -936,15 +942,10 @@ async function runTests() {
     const geminiPrototypeSkill = path.join(tempGeminiProjectDir, '.gemini', 'skills', 'bmad-shard-doc-skill-prototype', 'SKILL.md');
     assert(await fs.pathExists(geminiCanonicalSkill), 'Gemini install writes canonical shard-doc skill');
     assert(await fs.pathExists(geminiPrototypeSkill), 'Gemini install writes duplicated shard-doc prototype skill');
-
   } catch (error) {
     assert(false, 'Shard-doc prototype duplication test succeeds', error.message);
   } finally {
-    await Promise.allSettled(
-      [tempCodexProjectDir, tempGeminiProjectDir, installedBmadDir]
-        .filter(Boolean)
-        .map((dir) => fs.remove(dir)),
-    );
+    await Promise.allSettled([tempCodexProjectDir, tempGeminiProjectDir, installedBmadDir].filter(Boolean).map((dir) => fs.remove(dir)));
   }
 
   // Test 17: GitHub Copilot Native Skills Install
