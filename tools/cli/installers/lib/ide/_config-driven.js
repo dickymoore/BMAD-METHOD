@@ -503,12 +503,15 @@ LOAD and execute from: {project-root}/{{bmadFolderName}}/{{path}}
 
     if (!bmadDir) return;
 
-    const duplicatePrototypeIds = await this.getPrototypeSkillIdsForArtifact(artifact, bmadDir);
+    const sourceRef = this.resolveArtifactSourceRef(artifact, bmadDir);
+    const duplicatePrototypeIds = await this.getPrototypeSkillIdsForArtifact(artifact, bmadDir, sourceRef);
     for (const prototypeId of duplicatePrototypeIds) {
+      if (!this.isSafeSkillFolderName(prototypeId)) continue;
       if (prototypeId === skillName) continue;
       const prototypeDir = path.join(targetPath, prototypeId);
       await this.ensureDir(prototypeDir);
-      const prototypeContent = this.transformToSkillFormat(content, prototypeId);
+      const sourceSkillContent = await this.readPrototypeSourceSkillContent(sourceRef, prototypeId);
+      const prototypeContent = sourceSkillContent ?? this.transformToSkillFormat(content, prototypeId);
       await this.writeFile(path.join(prototypeDir, 'SKILL.md'), prototypeContent);
     }
   }
@@ -519,8 +522,8 @@ LOAD and execute from: {project-root}/{{bmadFolderName}}/{{path}}
    * @param {string} bmadDir - Installed bmad directory
    * @returns {Promise<string[]>} Prototype skill IDs
    */
-  async getPrototypeSkillIdsForArtifact(artifact, bmadDir) {
-    const sourceRef = this.resolveArtifactSourceRef(artifact, bmadDir);
+  async getPrototypeSkillIdsForArtifact(artifact, bmadDir, sourceRefOverride = null) {
+    const sourceRef = sourceRefOverride ?? this.resolveArtifactSourceRef(artifact, bmadDir);
     if (!sourceRef) return [];
 
     let manifest = this._manifestCache.get(sourceRef.dirPath);
@@ -529,6 +532,48 @@ LOAD and execute from: {project-root}/{{bmadFolderName}}/{{path}}
       this._manifestCache.set(sourceRef.dirPath, manifest);
     }
     return getPrototypeIds(manifest, sourceRef.filename);
+  }
+
+  /**
+   * Read prototype SKILL.md content directly from source when present.
+   * This enables copy-as-is installation for native skill prototypes.
+   * @param {{dirPath: string, filename: string}|null} sourceRef - Resolved source reference
+   * @param {string} prototypeId - Prototype skill ID
+   * @returns {Promise<string|null>} Source SKILL.md content or null
+   */
+  async readPrototypeSourceSkillContent(sourceRef, prototypeId) {
+    if (!sourceRef || !this.isSafeSkillFolderName(prototypeId)) return null;
+
+    const resolvedSourceDir = path.resolve(sourceRef.dirPath);
+    const sourceSkillPath = path.resolve(resolvedSourceDir, prototypeId, 'SKILL.md');
+    const relativeToSourceDir = path.relative(resolvedSourceDir, sourceSkillPath);
+
+    if (
+      relativeToSourceDir === '..' ||
+      relativeToSourceDir.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(relativeToSourceDir)
+    ) {
+      return null;
+    }
+
+    if (!(await fs.pathExists(sourceSkillPath))) return null;
+    return fs.readFile(sourceSkillPath, 'utf8');
+  }
+
+  /**
+   * Validate skill folder names used for source lookup.
+   * @param {string} skillId - Candidate skill ID
+   * @returns {boolean} True if safe to use as a folder name segment
+   */
+  isSafeSkillFolderName(skillId) {
+    return (
+      typeof skillId === 'string' &&
+      skillId.length > 0 &&
+      skillId !== '.' &&
+      skillId !== '..' &&
+      !skillId.includes('/') &&
+      !skillId.includes('\\')
+    );
   }
 
   /**

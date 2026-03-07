@@ -72,7 +72,7 @@ async function createTestBmadFixture() {
   await fs.ensureDir(path.join(fixtureDir, 'core', 'agents'));
   await fs.writeFile(path.join(fixtureDir, 'core', 'agents', 'bmad-master.md'), minimalAgent);
   // Skill manifest so the installer uses 'bmad-master' as the canonical skill name
-  await fs.writeFile(path.join(fixtureDir, 'core', 'agents', 'bmad-skill-manifest.yaml'), 'bmad-master.md:\n  canonicalId: bmad-master\n');
+  await fs.writeFile(path.join(fixtureDir, 'core', 'agents', 'skill-manifest.yaml'), 'bmad-master.md:\n  canonicalId: bmad-master\n');
 
   // Minimal compiled agent for bmm module (tests use selectedModules: ['bmm'])
   await fs.ensureDir(path.join(fixtureDir, 'bmm', 'agents'));
@@ -91,7 +91,7 @@ async function createShardDocPrototypeFixture() {
   );
 
   await fs.writeFile(
-    path.join(fixtureDir, 'core', 'tasks', 'bmad-skill-manifest.yaml'),
+    path.join(fixtureDir, 'core', 'tasks', 'skill-manifest.yaml'),
     [
       'shard-doc.xml:',
       '  canonicalId: bmad-shard-doc',
@@ -99,6 +99,26 @@ async function createShardDocPrototypeFixture() {
       '    - bmad-shard-doc-skill-prototype',
       '  type: task',
       '  description: "Splits large markdown documents into smaller, organized files based on sections"',
+      '',
+    ].join('\n'),
+  );
+
+  await fs.ensureDir(path.join(fixtureDir, 'core', 'tasks', 'bmad-shard-doc-skill-prototype'));
+  await fs.writeFile(
+    path.join(fixtureDir, 'core', 'tasks', 'bmad-shard-doc-skill-prototype', 'SKILL.md'),
+    [
+      '---',
+      'name: bmad-shard-doc-skill-prototype',
+      'description: Source-authored prototype skill',
+      '---',
+      '',
+      '# bmad-shard-doc-skill-prototype',
+      '',
+      'Prototype marker: source-authored-skill',
+      '',
+      'Read and execute from: {project-root}/_bmad/core/tasks/shard-doc.xml',
+      '',
+      'Follow all shard-doc task instructions exactly as written.',
       '',
     ].join('\n'),
   );
@@ -601,6 +621,7 @@ async function runTests() {
     const codexPrototypeContent = await fs.readFile(codexPrototypeSkill, 'utf8');
     assert(codexCanonicalContent.includes('name: bmad-shard-doc'), 'Canonical shard-doc skill keeps canonical frontmatter name');
     assert(codexPrototypeContent.includes('name: bmad-shard-doc-skill-prototype'), 'Prototype shard-doc skill uses prototype frontmatter name');
+    assert(codexPrototypeContent.includes('Prototype marker: source-authored-skill'), 'Prototype shard-doc skill is copied from source SKILL.md');
 
     const geminiResult = await ideManager.setup('gemini', tempGeminiProjectDir, installedBmadDir, {
       silent: true,

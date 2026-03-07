@@ -266,7 +266,7 @@ function parseUnderscoreName(filename) {
 
 /**
  * Resolve the skill name for an artifact.
- * Prefers canonicalId from a bmad-skill-manifest.yaml sidecar when available,
+ * Prefers canonicalId from a skill manifest sidecar when available,
  * falling back to the path-derived name from toDashPath().
  *
  * @param {Object} artifact - Artifact object (must have relativePath; may have canonicalId)

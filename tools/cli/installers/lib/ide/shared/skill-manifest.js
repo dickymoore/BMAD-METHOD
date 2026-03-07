@@ -2,26 +2,32 @@ const path = require('node:path');
 const fs = require('fs-extra');
 const yaml = require('yaml');
 
+const SKILL_MANIFEST_FILENAMES = ['skill-manifest.yaml', 'bmad-skill-manifest.yaml', 'manifest.yaml'];
+
 /**
- * Load bmad-skill-manifest.yaml from a directory.
+ * Load skill manifest from a directory.
  * Single-entry manifests (canonicalId at top level) apply to all files in the directory.
  * Multi-entry manifests are keyed by source filename.
- * @param {string} dirPath - Directory to check for bmad-skill-manifest.yaml
+ * @param {string} dirPath - Directory to check for supported manifest filenames
  * @returns {Object|null} Parsed manifest or null
  */
 async function loadSkillManifest(dirPath) {
-  const manifestPath = path.join(dirPath, 'bmad-skill-manifest.yaml');
-  try {
-    if (!(await fs.pathExists(manifestPath))) return null;
-    const content = await fs.readFile(manifestPath, 'utf8');
-    const parsed = yaml.parse(content);
-    if (!parsed || typeof parsed !== 'object') return null;
-    if (parsed.canonicalId) return { __single: parsed };
-    return parsed;
-  } catch (error) {
-    console.warn(`Warning: Failed to parse bmad-skill-manifest.yaml in ${dirPath}: ${error.message}`);
-    return null;
+  for (const manifestFilename of SKILL_MANIFEST_FILENAMES) {
+    const manifestPath = path.join(dirPath, manifestFilename);
+    try {
+      if (!(await fs.pathExists(manifestPath))) continue;
+      const content = await fs.readFile(manifestPath, 'utf8');
+      const parsed = yaml.parse(content);
+      if (!parsed || typeof parsed !== 'object') return null;
+      if (parsed.canonicalId) return { __single: parsed };
+      return parsed;
+    } catch (error) {
+      console.warn(`Warning: Failed to parse ${manifestFilename} in ${dirPath}: ${error.message}`);
+      return null;
+    }
   }
+
+  return null;
 }
 
 /**
