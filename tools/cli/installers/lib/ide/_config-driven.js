@@ -548,11 +548,7 @@ LOAD and execute from: {project-root}/{{bmadFolderName}}/{{path}}
     const sourceSkillPath = path.resolve(resolvedSourceDir, prototypeId, 'SKILL.md');
     const relativeToSourceDir = path.relative(resolvedSourceDir, sourceSkillPath);
 
-    if (
-      relativeToSourceDir === '..' ||
-      relativeToSourceDir.startsWith(`..${path.sep}`) ||
-      path.isAbsolute(relativeToSourceDir)
-    ) {
+    if (relativeToSourceDir === '..' || relativeToSourceDir.startsWith(`..${path.sep}`) || path.isAbsolute(relativeToSourceDir)) {
       return null;
     }
 
@@ -583,8 +579,19 @@ LOAD and execute from: {project-root}/{{bmadFolderName}}/{{path}}
    * @returns {{dirPath: string, filename: string}|null}
    */
   resolveArtifactSourceRef(artifact, bmadDir) {
-    if (artifact.type !== 'task' || !artifact.path) return null;
-    const sourcePath = artifact.path;
+    let sourcePath = '';
+
+    if ((artifact.type === 'task' || artifact.type === 'tool') && artifact.path) {
+      sourcePath = artifact.path;
+    } else if (artifact.type === 'workflow-command' && artifact.workflowPath) {
+      sourcePath = artifact.workflowPath;
+    } else if (artifact.type === 'agent-launcher' && artifact.agentPath) {
+      sourcePath = artifact.agentPath;
+    } else if (typeof artifact.sourcePath === 'string') {
+      sourcePath = artifact.sourcePath;
+    }
+
+    if (!sourcePath) return null;
 
     let normalized = sourcePath.replaceAll('\\', '/');
     if (path.isAbsolute(normalized)) {
