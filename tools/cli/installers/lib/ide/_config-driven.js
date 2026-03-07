@@ -7,6 +7,7 @@ const prompts = require('../../../lib/prompts');
 const { AgentCommandGenerator } = require('./shared/agent-command-generator');
 const { WorkflowCommandGenerator } = require('./shared/workflow-command-generator');
 const { TaskToolCommandGenerator } = require('./shared/task-tool-command-generator');
+const { loadSkillManifest, getPrototypeIds } = require('./shared/skill-manifest');
 
 /**
  * Config-driven IDE setup handler
@@ -132,21 +133,21 @@ class ConfigDrivenIdeSetup extends BaseIdeSetup {
     if (!artifact_types || artifact_types.includes('agents')) {
       const agentGen = new AgentCommandGenerator(this.bmadFolderName);
       const { artifacts } = await agentGen.collectAgentArtifacts(bmadDir, selectedModules);
-      results.agents = await this.writeAgentArtifacts(targetPath, artifacts, template_type, config);
+      results.agents = await this.writeAgentArtifacts(targetPath, artifacts, template_type, config, bmadDir);
     }
 
     // Install workflows
     if (!artifact_types || artifact_types.includes('workflows')) {
       const workflowGen = new WorkflowCommandGenerator(this.bmadFolderName);
       const { artifacts } = await workflowGen.collectWorkflowArtifacts(bmadDir);
-      results.workflows = await this.writeWorkflowArtifacts(targetPath, artifacts, template_type, config);
+      results.workflows = await this.writeWorkflowArtifacts(targetPath, artifacts, template_type, config, bmadDir);
     }
 
     // Install tasks and tools using template system (supports TOML for Gemini, MD for others)
     if (!artifact_types || artifact_types.includes('tasks') || artifact_types.includes('tools')) {
       const taskToolGen = new TaskToolCommandGenerator(this.bmadFolderName);
       const { artifacts } = await taskToolGen.collectTaskToolArtifacts(bmadDir);
-      const taskToolResult = await this.writeTaskToolArtifacts(targetPath, artifacts, template_type, config);
+      const taskToolResult = await this.writeTaskToolArtifacts(targetPath, artifacts, template_type, config, bmadDir);
       results.tasks = taskToolResult.tasks || 0;
       results.tools = taskToolResult.tools || 0;
     }
@@ -187,7 +188,7 @@ class ConfigDrivenIdeSetup extends BaseIdeSetup {
    * @param {Object} config - Installation configuration
    * @returns {Promise<number>} Count of artifacts written
    */
-  async writeAgentArtifacts(targetPath, artifacts, templateType, config = {}) {
+  async writeAgentArtifacts(targetPath, artifacts, templateType, config = {}, bmadDir = null) {
     // Try to load platform-specific template, fall back to default-agent
     const { content: template, extension } = await this.loadTemplate(templateType, 'agent', config, 'default-agent');
     let count = 0;
@@ -197,7 +198,7 @@ class ConfigDrivenIdeSetup extends BaseIdeSetup {
       const filename = this.generateFilename(artifact, 'agent', extension);
 
       if (config.skill_format) {
-        await this.writeSkillFile(targetPath, artifact, content);
+        await this.writeSkillFile(targetPath, artifact, content, bmadDir);
       } else {
         const filePath = path.join(targetPath, filename);
         await this.writeFile(filePath, content);
@@ -216,7 +217,7 @@ class ConfigDrivenIdeSetup extends BaseIdeSetup {
    * @param {Object} config - Installation configuration
    * @returns {Promise<number>} Count of artifacts written
    */
-  async writeWorkflowArtifacts(targetPath, artifacts, templateType, config = {}) {
+  async writeWorkflowArtifacts(targetPath, artifacts, templateType, config = {}, bmadDir = null) {
     let count = 0;
 
     for (const artifact of artifacts) {
@@ -235,7 +236,7 @@ class ConfigDrivenIdeSetup extends BaseIdeSetup {
         const filename = this.generateFilename(artifact, 'workflow', extension);
 
         if (config.skill_format) {
-          await this.writeSkillFile(targetPath, artifact, content);
+          await this.writeSkillFile(targetPath, artifact, content, bmadDir);
         } else {
           const filePath = path.join(targetPath, filename);
           await this.writeFile(filePath, content);
@@ -255,7 +256,7 @@ class ConfigDrivenIdeSetup extends BaseIdeSetup {
    * @param {Object} config - Installation configuration
    * @returns {Promise<Object>} Counts of tasks and tools written
    */
-  async writeTaskToolArtifacts(targetPath, artifacts, templateType, config = {}) {
+  async writeTaskToolArtifacts(targetPath, artifacts, templateType, config = {}, bmadDir = null) {
     let taskCount = 0;
     let toolCount = 0;
 
@@ -283,7 +284,7 @@ class ConfigDrivenIdeSetup extends BaseIdeSetup {
       const filename = this.generateFilename(artifact, artifact.type, extension);
 
       if (config.skill_format) {
-        await this.writeSkillFile(targetPath, artifact, content);
+        await this.writeSkillFile(targetPath, artifact, content, bmadDir);
       } else {
         const filePath = path.join(targetPath, filename);
         await this.writeFile(filePath, content);
@@ -478,7 +479,7 @@ LOAD and execute from: {project-root}/{{bmadFolderName}}/{{path}}
    * @param {Object} artifact - Artifact data
    * @param {string} content - Rendered template content
    */
-  async writeSkillFile(targetPath, artifact, content) {
+  async writeSkillFile(targetPath, artifact, content, bmadDir = null) {
     const { resolveSkillName } = require('./shared/path-utils');
 
     // Get the skill name (prefers canonicalId, falls back to path-derived) and remove .md
@@ -497,6 +498,76 @@ LOAD and execute from: {project-root}/{{bmadFolderName}}/{{path}}
     const skillContent = this.transformToSkillFormat(content, skillName);
 
     await this.writeFile(path.join(skillDir, 'SKILL.md'), skillContent);
+
+    if (!bmadDir) return;
+
+    const duplicatePrototypeIds = await this.getPrototypeSkillIdsForArtifact(artifact, bmadDir);
+    for (const prototypeId of duplicatePrototypeIds) {
+      if (prototypeId === skillName) continue;
+      const prototypeDir = path.join(targetPath, prototypeId);
+      await this.ensureDir(prototypeDir);
+      const prototypeContent = this.transformToSkillFormat(content, prototypeId);
+      await this.writeFile(path.join(prototypeDir, 'SKILL.md'), prototypeContent);
+    }
+  }
+
+  /**
+   * Resolve duplicate prototype IDs for an artifact from the installed bmad source tree.
+   * @param {Object} artifact - Artifact metadata
+   * @param {string} bmadDir - Installed bmad directory
+   * @returns {Promise<string[]>} Prototype skill IDs
+   */
+  async getPrototypeSkillIdsForArtifact(artifact, bmadDir) {
+    const sourceRef = this.resolveArtifactSourceRef(artifact, bmadDir);
+    if (!sourceRef) return [];
+
+    const manifest = await loadSkillManifest(sourceRef.dirPath);
+    return getPrototypeIds(manifest, sourceRef.filename);
+  }
+
+  /**
+   * Resolve the artifact source directory + filename within installed bmad tree.
+   * @param {Object} artifact - Artifact metadata
+   * @param {string} bmadDir - Installed bmad directory
+   * @returns {{dirPath: string, filename: string}|null}
+   */
+  resolveArtifactSourceRef(artifact, bmadDir) {
+    let sourcePath = '';
+
+    if ((artifact.type === 'task' || artifact.type === 'tool') && artifact.path) {
+      sourcePath = artifact.path;
+    } else if (artifact.type === 'workflow-command' && artifact.workflowPath) {
+      sourcePath = artifact.workflowPath;
+    } else if (artifact.type === 'agent-launcher' && artifact.agentPath) {
+      sourcePath = artifact.agentPath;
+    } else if (typeof artifact.sourcePath === 'string') {
+      sourcePath = artifact.sourcePath;
+    }
+
+    if (!sourcePath) return null;
+
+    let normalized = sourcePath.replaceAll('\\', '/');
+    if (path.isAbsolute(normalized)) {
+      normalized = path.relative(bmadDir, normalized).replaceAll('\\', '/');
+    }
+
+    for (const prefix of [`${this.bmadFolderName}/`, '_bmad/', 'bmad/']) {
+      if (normalized.startsWith(prefix)) {
+        normalized = normalized.slice(prefix.length);
+        break;
+      }
+    }
+
+    // eslint-disable-next-line unicorn/prefer-string-replace-all -- regex replacement is intentional
+    normalized = normalized.replace(/^\/+/, '');
+    if (!normalized || normalized.startsWith('..')) return null;
+
+    const filename = path.basename(normalized);
+    if (!filename || filename === '.' || filename === '..') return null;
+
+    const relativeDir = path.dirname(normalized);
+    const dirPath = relativeDir === '.' ? bmadDir : path.join(bmadDir, relativeDir);
+    return { dirPath, filename };
   }
 
   /**
