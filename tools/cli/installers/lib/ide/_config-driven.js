@@ -549,19 +549,8 @@ LOAD and execute from: {project-root}/{{bmadFolderName}}/{{path}}
    * @returns {{dirPath: string, filename: string}|null}
    */
   resolveArtifactSourceRef(artifact, bmadDir) {
-    let sourcePath = '';
-
-    if ((artifact.type === 'task' || artifact.type === 'tool') && artifact.path) {
-      sourcePath = artifact.path;
-    } else if (artifact.type === 'workflow-command' && artifact.workflowPath) {
-      sourcePath = artifact.workflowPath;
-    } else if (artifact.type === 'agent-launcher' && artifact.agentPath) {
-      sourcePath = artifact.agentPath;
-    } else if (typeof artifact.sourcePath === 'string') {
-      sourcePath = artifact.sourcePath;
-    }
-
-    if (!sourcePath) return null;
+    if (artifact.type !== 'task' || !artifact.path) return null;
+    const sourcePath = artifact.path;
 
     let normalized = sourcePath.replaceAll('\\', '/');
     if (path.isAbsolute(normalized)) {

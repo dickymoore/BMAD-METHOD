@@ -46,8 +46,7 @@ function getPrototypeIds(manifest, filename) {
   const manifestEntry = resolveManifestEntry(manifest, filename);
   if (!manifestEntry) return [];
 
-  // Support one canonical field name plus temporary/fallback aliases during transition.
-  const rawIds = manifestEntry.prototypeIds ?? manifestEntry.skillPrototypeIds ?? manifestEntry.duplicateSkillIds ?? [];
+  const rawIds = manifestEntry.prototypeIds ?? [];
   return normalizeIdList(rawIds);
 }
 
