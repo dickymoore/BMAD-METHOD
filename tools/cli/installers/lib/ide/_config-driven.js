@@ -27,6 +27,7 @@ class ConfigDrivenIdeSetup extends BaseIdeSetup {
     super(platformCode, platformConfig.name, platformConfig.preferred);
     this.platformConfig = platformConfig;
     this.installerConfig = platformConfig.installer || null;
+    this._manifestCache = new Map();
 
     // Set configDir from target_dir so base-class detect() works
     if (this.installerConfig?.target_dir) {
@@ -116,6 +117,7 @@ class ConfigDrivenIdeSetup extends BaseIdeSetup {
    */
   async installToTarget(projectDir, bmadDir, config, options) {
     const { target_dir, template_type, artifact_types } = config;
+    this._manifestCache = new Map();
 
     // Skip targets with explicitly empty artifact_types array
     // This prevents creating empty directories when no artifacts will be written
@@ -521,7 +523,11 @@ LOAD and execute from: {project-root}/{{bmadFolderName}}/{{path}}
     const sourceRef = this.resolveArtifactSourceRef(artifact, bmadDir);
     if (!sourceRef) return [];
 
-    const manifest = await loadSkillManifest(sourceRef.dirPath);
+    let manifest = this._manifestCache.get(sourceRef.dirPath);
+    if (manifest === undefined) {
+      manifest = await loadSkillManifest(sourceRef.dirPath);
+      this._manifestCache.set(sourceRef.dirPath, manifest);
+    }
     return getPrototypeIds(manifest, sourceRef.filename);
   }
 
@@ -558,15 +564,21 @@ LOAD and execute from: {project-root}/{{bmadFolderName}}/{{path}}
       }
     }
 
-    // eslint-disable-next-line unicorn/prefer-string-replace-all -- regex replacement is intentional
     normalized = normalized.replace(/^\/+/, '');
     if (!normalized || normalized.startsWith('..')) return null;
 
     const filename = path.basename(normalized);
     if (!filename || filename === '.' || filename === '..') return null;
 
+    const resolvedBmadDir = path.resolve(bmadDir);
     const relativeDir = path.dirname(normalized);
-    const dirPath = relativeDir === '.' ? bmadDir : path.join(bmadDir, relativeDir);
+    const dirPath = relativeDir === '.' ? resolvedBmadDir : path.resolve(resolvedBmadDir, relativeDir);
+    const pathFromBmadRoot = path.relative(resolvedBmadDir, dirPath);
+
+    if (pathFromBmadRoot === '..' || pathFromBmadRoot.startsWith(`..${path.sep}`) || path.isAbsolute(pathFromBmadRoot)) {
+      return null;
+    }
+
     return { dirPath, filename };
   }
 

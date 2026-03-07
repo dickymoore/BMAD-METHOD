@@ -97,6 +97,8 @@ async function createShardDocPrototypeFixture() {
       '  canonicalId: bmad-shard-doc',
       '  prototypeIds:',
       '    - bmad-shard-doc-skill-prototype',
+      '  type: task',
+      '  description: "Splits large markdown documents into smaller, organized files based on sections"',
       '',
     ].join('\n'),
   );
@@ -564,6 +566,9 @@ async function runTests() {
   // ============================================================
   console.log(`${colors.yellow}Test Suite 11: Shard-doc Prototype Duplication${colors.reset}\n`);
 
+  let tempCodexProjectDir;
+  let tempGeminiProjectDir;
+  let installedBmadDir;
   try {
     clearCache();
     const platformCodes = await loadPlatformCodes();
@@ -573,9 +578,9 @@ async function runTests() {
     assert(codexInstaller?.skill_format === true, 'Codex installer uses skill_format output');
     assert(geminiInstaller?.skill_format !== true, 'Gemini installer remains non-skill_format');
 
-    const tempCodexProjectDir = await fs.mkdtemp(path.join(os.tmpdir(), 'bmad-codex-prototype-test-'));
-    const tempGeminiProjectDir = await fs.mkdtemp(path.join(os.tmpdir(), 'bmad-gemini-prototype-test-'));
-    const installedBmadDir = await createShardDocPrototypeFixture();
+    tempCodexProjectDir = await fs.mkdtemp(path.join(os.tmpdir(), 'bmad-codex-prototype-test-'));
+    tempGeminiProjectDir = await fs.mkdtemp(path.join(os.tmpdir(), 'bmad-gemini-prototype-test-'));
+    installedBmadDir = await createShardDocPrototypeFixture();
 
     const ideManager = new IdeManager();
     await ideManager.ensureInitialized();
@@ -609,11 +614,14 @@ async function runTests() {
     assert(await fs.pathExists(geminiCanonicalTask), 'Gemini install writes canonical shard-doc command artifact');
     assert(!(await fs.pathExists(geminiPrototypeTask)), 'Gemini install does not write duplicated shard-doc prototype artifact');
 
-    await fs.remove(tempCodexProjectDir);
-    await fs.remove(tempGeminiProjectDir);
-    await fs.remove(installedBmadDir);
   } catch (error) {
     assert(false, 'Shard-doc prototype duplication test succeeds', error.message);
+  } finally {
+    await Promise.allSettled(
+      [tempCodexProjectDir, tempGeminiProjectDir, installedBmadDir]
+        .filter(Boolean)
+        .map((dir) => fs.remove(dir)),
+    );
   }
 
   console.log('');
