@@ -7,7 +7,7 @@ const prompts = require('../../../lib/prompts');
 const { AgentCommandGenerator } = require('./shared/agent-command-generator');
 const { WorkflowCommandGenerator } = require('./shared/workflow-command-generator');
 const { TaskToolCommandGenerator } = require('./shared/task-tool-command-generator');
-const { loadSkillManifest, getPrototypeIds } = require('./shared/skill-manifest');
+const csv = require('csv-parse/sync');
 
 /**
  * Config-driven IDE setup handler
@@ -27,7 +27,6 @@ class ConfigDrivenIdeSetup extends BaseIdeSetup {
     super(platformCode, platformConfig.name, platformConfig.preferred);
     this.platformConfig = platformConfig;
     this.installerConfig = platformConfig.installer || null;
-    this._manifestCache = new Map();
 
     // Set configDir from target_dir so base-class detect() works
     if (this.installerConfig?.target_dir) {
@@ -117,41 +116,49 @@ class ConfigDrivenIdeSetup extends BaseIdeSetup {
    */
   async installToTarget(projectDir, bmadDir, config, options) {
     const { target_dir, template_type, artifact_types } = config;
-    this._manifestCache = new Map();
 
-    // Skip targets with explicitly empty artifact_types array
+    // Skip targets with explicitly empty artifact_types and no verbatim skills
     // This prevents creating empty directories when no artifacts will be written
-    if (Array.isArray(artifact_types) && artifact_types.length === 0) {
-      return { success: true, results: { agents: 0, workflows: 0, tasks: 0, tools: 0 } };
+    const skipStandardArtifacts = Array.isArray(artifact_types) && artifact_types.length === 0;
+    if (skipStandardArtifacts && !config.skill_format) {
+      return { success: true, results: { agents: 0, workflows: 0, tasks: 0, tools: 0, skills: 0 } };
     }
 
     const targetPath = path.join(projectDir, target_dir);
     await this.ensureDir(targetPath);
 
     const selectedModules = options.selectedModules || [];
-    const results = { agents: 0, workflows: 0, tasks: 0, tools: 0 };
+    const results = { agents: 0, workflows: 0, tasks: 0, tools: 0, skills: 0 };
 
-    // Install agents
-    if (!artifact_types || artifact_types.includes('agents')) {
-      const agentGen = new AgentCommandGenerator(this.bmadFolderName);
-      const { artifacts } = await agentGen.collectAgentArtifacts(bmadDir, selectedModules);
-      results.agents = await this.writeAgentArtifacts(targetPath, artifacts, template_type, config, bmadDir);
+    // Install standard artifacts (agents, workflows, tasks, tools)
+    if (!skipStandardArtifacts) {
+      // Install agents
+      if (!artifact_types || artifact_types.includes('agents')) {
+        const agentGen = new AgentCommandGenerator(this.bmadFolderName);
+        const { artifacts } = await agentGen.collectAgentArtifacts(bmadDir, selectedModules);
+        results.agents = await this.writeAgentArtifacts(targetPath, artifacts, template_type, config, bmadDir);
+      }
+
+      // Install workflows
+      if (!artifact_types || artifact_types.includes('workflows')) {
+        const workflowGen = new WorkflowCommandGenerator(this.bmadFolderName);
+        const { artifacts } = await workflowGen.collectWorkflowArtifacts(bmadDir);
+        results.workflows = await this.writeWorkflowArtifacts(targetPath, artifacts, template_type, config, bmadDir);
+      }
+
+      // Install tasks and tools using template system (supports TOML for Gemini, MD for others)
+      if (!artifact_types || artifact_types.includes('tasks') || artifact_types.includes('tools')) {
+        const taskToolGen = new TaskToolCommandGenerator(this.bmadFolderName);
+        const { artifacts } = await taskToolGen.collectTaskToolArtifacts(bmadDir);
+        const taskToolResult = await this.writeTaskToolArtifacts(targetPath, artifacts, template_type, config, bmadDir);
+        results.tasks = taskToolResult.tasks || 0;
+        results.tools = taskToolResult.tools || 0;
+      }
     }
 
-    // Install workflows
-    if (!artifact_types || artifact_types.includes('workflows')) {
-      const workflowGen = new WorkflowCommandGenerator(this.bmadFolderName);
-      const { artifacts } = await workflowGen.collectWorkflowArtifacts(bmadDir);
-      results.workflows = await this.writeWorkflowArtifacts(targetPath, artifacts, template_type, config, bmadDir);
-    }
-
-    // Install tasks and tools using template system (supports TOML for Gemini, MD for others)
-    if (!artifact_types || artifact_types.includes('tasks') || artifact_types.includes('tools')) {
-      const taskToolGen = new TaskToolCommandGenerator(this.bmadFolderName);
-      const { artifacts } = await taskToolGen.collectTaskToolArtifacts(bmadDir);
-      const taskToolResult = await this.writeTaskToolArtifacts(targetPath, artifacts, template_type, config, bmadDir);
-      results.tasks = taskToolResult.tasks || 0;
-      results.tools = taskToolResult.tools || 0;
+    // Install verbatim skills (type: skill)
+    if (config.skill_format) {
+      results.skills = await this.installVerbatimSkills(projectDir, bmadDir, targetPath, config);
     }
 
     await this.printSummary(results, target_dir, options);
@@ -167,7 +174,7 @@ class ConfigDrivenIdeSetup extends BaseIdeSetup {
    * @returns {Promise<Object>} Installation result
    */
   async installToMultipleTargets(projectDir, bmadDir, targets, options) {
-    const allResults = { agents: 0, workflows: 0, tasks: 0, tools: 0 };
+    const allResults = { agents: 0, workflows: 0, tasks: 0, tools: 0, skills: 0 };
 
     for (const target of targets) {
       const result = await this.installToTarget(projectDir, bmadDir, target, options);
@@ -176,6 +183,7 @@ class ConfigDrivenIdeSetup extends BaseIdeSetup {
         allResults.workflows += result.results.workflows || 0;
         allResults.tasks += result.results.tasks || 0;
         allResults.tools += result.results.tools || 0;
+        allResults.skills += result.results.skills || 0;
       }
     }
 
@@ -501,37 +509,30 @@ LOAD and execute from: {project-root}/{{bmadFolderName}}/{{path}}
 
     await this.writeFile(path.join(skillDir, 'SKILL.md'), skillContent);
 
-    if (!bmadDir) return;
-
-    const sourceRef = this.resolveArtifactSourceRef(artifact, bmadDir);
-    const duplicatePrototypeIds = await this.getPrototypeSkillIdsForArtifact(artifact, bmadDir, sourceRef);
-    for (const prototypeId of duplicatePrototypeIds) {
-      if (!this.isSafeSkillFolderName(prototypeId)) continue;
-      if (prototypeId === skillName) continue;
-      const prototypeDir = path.join(targetPath, prototypeId);
-      await this.ensureDir(prototypeDir);
-      const sourceSkillContent = await this.readPrototypeSourceSkillContent(sourceRef, prototypeId);
-      const prototypeContent = sourceSkillContent ?? this.transformToSkillFormat(content, prototypeId);
-      await this.writeFile(path.join(prototypeDir, 'SKILL.md'), prototypeContent);
-    }
+    await this.writeShardDocPrototypeSkill(targetPath, artifact, bmadDir, skillName);
   }
 
   /**
-   * Resolve duplicate prototype IDs for an artifact from the installed bmad source tree.
+   * Copy shard-doc prototype skill during transition when installing skill-format targets.
+   * Keeps scope literal for the first PoC without introducing generalized prototype linkage.
+   * @param {string} targetPath - Base skills directory
    * @param {Object} artifact - Artifact metadata
-   * @param {string} bmadDir - Installed bmad directory
-   * @returns {Promise<string[]>} Prototype skill IDs
+   * @param {string|null} bmadDir - Installed bmad directory
+   * @param {string} skillName - Canonical skill name being written
    */
-  async getPrototypeSkillIdsForArtifact(artifact, bmadDir, sourceRefOverride = null) {
-    const sourceRef = sourceRefOverride ?? this.resolveArtifactSourceRef(artifact, bmadDir);
-    if (!sourceRef) return [];
+  async writeShardDocPrototypeSkill(targetPath, artifact, bmadDir, skillName) {
+    if (!bmadDir || skillName !== 'bmad-shard-doc') return;
 
-    let manifest = this._manifestCache.get(sourceRef.dirPath);
-    if (manifest === undefined) {
-      manifest = await loadSkillManifest(sourceRef.dirPath);
-      this._manifestCache.set(sourceRef.dirPath, manifest);
-    }
-    return getPrototypeIds(manifest, sourceRef.filename);
+    const sourceRef = this.resolveArtifactSourceRef(artifact, bmadDir);
+    if (!sourceRef) return;
+
+    const prototypeId = 'bmad-shard-doc-skill-prototype';
+    const sourceSkillContent = await this.readPrototypeSourceSkillContent(sourceRef, prototypeId);
+    if (!sourceSkillContent) return;
+
+    const prototypeDir = path.join(targetPath, prototypeId);
+    await this.ensureDir(prototypeDir);
+    await this.writeFile(path.join(prototypeDir, 'SKILL.md'), sourceSkillContent);
   }
 
   /**
@@ -542,34 +543,10 @@ LOAD and execute from: {project-root}/{{bmadFolderName}}/{{path}}
    * @returns {Promise<string|null>} Source SKILL.md content or null
    */
   async readPrototypeSourceSkillContent(sourceRef, prototypeId) {
-    if (!sourceRef || !this.isSafeSkillFolderName(prototypeId)) return null;
-
-    const resolvedSourceDir = path.resolve(sourceRef.dirPath);
-    const sourceSkillPath = path.resolve(resolvedSourceDir, prototypeId, 'SKILL.md');
-    const relativeToSourceDir = path.relative(resolvedSourceDir, sourceSkillPath);
-
-    if (relativeToSourceDir === '..' || relativeToSourceDir.startsWith(`..${path.sep}`) || path.isAbsolute(relativeToSourceDir)) {
-      return null;
-    }
-
+    if (!sourceRef || typeof prototypeId !== 'string' || !prototypeId.trim()) return null;
+    const sourceSkillPath = path.join(sourceRef.dirPath, prototypeId, 'SKILL.md');
     if (!(await fs.pathExists(sourceSkillPath))) return null;
     return fs.readFile(sourceSkillPath, 'utf8');
-  }
-
-  /**
-   * Validate skill folder names used for source lookup.
-   * @param {string} skillId - Candidate skill ID
-   * @returns {boolean} True if safe to use as a folder name segment
-   */
-  isSafeSkillFolderName(skillId) {
-    return (
-      typeof skillId === 'string' &&
-      skillId.length > 0 &&
-      skillId !== '.' &&
-      skillId !== '..' &&
-      !skillId.includes('/') &&
-      !skillId.includes('\\')
-    );
   }
 
   /**
@@ -579,19 +556,8 @@ LOAD and execute from: {project-root}/{{bmadFolderName}}/{{path}}
    * @returns {{dirPath: string, filename: string}|null}
    */
   resolveArtifactSourceRef(artifact, bmadDir) {
-    let sourcePath = '';
-
-    if ((artifact.type === 'task' || artifact.type === 'tool') && artifact.path) {
-      sourcePath = artifact.path;
-    } else if (artifact.type === 'workflow-command' && artifact.workflowPath) {
-      sourcePath = artifact.workflowPath;
-    } else if (artifact.type === 'agent-launcher' && artifact.agentPath) {
-      sourcePath = artifact.agentPath;
-    } else if (typeof artifact.sourcePath === 'string') {
-      sourcePath = artifact.sourcePath;
-    }
-
-    if (!sourcePath) return null;
+    if (artifact.type !== 'task' || !artifact.path) return null;
+    const sourcePath = artifact.path;
 
     let normalized = sourcePath.replaceAll('\\', '/');
     if (path.isAbsolute(normalized)) {
@@ -611,15 +577,8 @@ LOAD and execute from: {project-root}/{{bmadFolderName}}/{{path}}
     const filename = path.basename(normalized);
     if (!filename || filename === '.' || filename === '..') return null;
 
-    const resolvedBmadDir = path.resolve(bmadDir);
     const relativeDir = path.dirname(normalized);
-    const dirPath = relativeDir === '.' ? resolvedBmadDir : path.resolve(resolvedBmadDir, relativeDir);
-    const pathFromBmadRoot = path.relative(resolvedBmadDir, dirPath);
-
-    if (pathFromBmadRoot === '..' || pathFromBmadRoot.startsWith(`..${path.sep}`) || path.isAbsolute(pathFromBmadRoot)) {
-      return null;
-    }
-
+    const dirPath = relativeDir === '.' ? bmadDir : path.join(bmadDir, relativeDir);
     return { dirPath, filename };
   }
 
@@ -747,6 +706,94 @@ LOAD and execute from: {project-root}/{{bmadFolderName}}/{{path}}
   }
 
   /**
+   * Install verbatim skill directories (type: skill entries from skill-manifest.csv).
+   * Copies the entire source directory into the IDE skill directory, auto-generating SKILL.md.
+   * @param {string} projectDir - Project directory
+   * @param {string} bmadDir - BMAD installation directory
+   * @param {string} targetPath - Target skills directory
+   * @param {Object} config - Installation configuration
+   * @returns {Promise<number>} Count of skills installed
+   */
+  async installVerbatimSkills(projectDir, bmadDir, targetPath, config) {
+    const bmadFolderName = path.basename(bmadDir);
+    const csvPath = path.join(bmadDir, '_config', 'skill-manifest.csv');
+
+    if (!(await fs.pathExists(csvPath))) return 0;
+
+    const csvContent = await fs.readFile(csvPath, 'utf8');
+    const records = csv.parse(csvContent, {
+      columns: true,
+      skip_empty_lines: true,
+    });
+
+    let count = 0;
+
+    for (const record of records) {
+      const canonicalId = record.canonicalId;
+      if (!canonicalId) continue;
+
+      // Derive source directory from path column
+      // path is like "_bmad/bmm/workflows/bmad-quick-flow/bmad-quick-dev-new-preview/workflow.md"
+      // Strip bmadFolderName prefix and join with bmadDir, then get dirname
+      const relativePath = record.path.replace(new RegExp(`^${bmadFolderName}/`), '');
+      const sourceFile = path.join(bmadDir, relativePath);
+      const sourceDir = path.dirname(sourceFile);
+
+      if (!(await fs.pathExists(sourceDir))) continue;
+
+      // Clean target before copy to prevent stale files
+      const skillDir = path.join(targetPath, canonicalId);
+      await fs.remove(skillDir);
+      await fs.ensureDir(skillDir);
+
+      // Parse workflow.md frontmatter for description
+      let description = `${canonicalId} skill`;
+      try {
+        const workflowContent = await fs.readFile(sourceFile, 'utf8');
+        const fmMatch = workflowContent.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+        if (fmMatch) {
+          const frontmatter = yaml.parse(fmMatch[1]);
+          if (frontmatter?.description) {
+            description = frontmatter.description;
+          }
+        }
+      } catch (error) {
+        await prompts.log.warn(`Failed to parse frontmatter from ${sourceFile}: ${error.message}`);
+      }
+
+      // Generate SKILL.md with YAML-safe frontmatter
+      const frontmatterYaml = yaml.stringify({ name: canonicalId, description: String(description) }, { lineWidth: 0 }).trimEnd();
+      const skillMd = `---\n${frontmatterYaml}\n---\n\nIT IS CRITICAL THAT YOU FOLLOW THIS COMMAND: LOAD the FULL workflow.md, READ its entire contents and follow its directions exactly!\n`;
+      await fs.writeFile(path.join(skillDir, 'SKILL.md'), skillMd);
+
+      // Copy all files except bmad-skill-manifest.yaml
+      const entries = await fs.readdir(sourceDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.name === 'bmad-skill-manifest.yaml') continue;
+        const srcPath = path.join(sourceDir, entry.name);
+        const destPath = path.join(skillDir, entry.name);
+        await fs.copy(srcPath, destPath);
+      }
+
+      count++;
+    }
+
+    // Post-install cleanup: remove _bmad/ directories for skills with install_to_bmad === "false"
+    for (const record of records) {
+      if (record.install_to_bmad === 'false') {
+        const relativePath = record.path.replace(new RegExp(`^${bmadFolderName}/`), '');
+        const sourceFile = path.join(bmadDir, relativePath);
+        const sourceDir = path.dirname(sourceFile);
+        if (await fs.pathExists(sourceDir)) {
+          await fs.remove(sourceDir);
+        }
+      }
+    }
+
+    return count;
+  }
+
+  /**
    * Print installation summary
    * @param {Object} results - Installation results
    * @param {string} targetDir - Target directory (relative)
@@ -758,6 +805,7 @@ LOAD and execute from: {project-root}/{{bmadFolderName}}/{{path}}
     if (results.workflows > 0) parts.push(`${results.workflows} workflows`);
     if (results.tasks > 0) parts.push(`${results.tasks} tasks`);
     if (results.tools > 0) parts.push(`${results.tools} tools`);
+    if (results.skills > 0) parts.push(`${results.skills} skills`);
     await prompts.log.success(`${this.name} configured: ${parts.join(', ')} → ${targetDir}`);
   }
 
