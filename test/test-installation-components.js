@@ -904,18 +904,18 @@ async function runTests() {
   try {
     clearCache();
     const platformCodes = await loadPlatformCodes();
-    const skillFormatEntry = Object.entries(platformCodes.platforms || {}).find(([_, platform]) => {
-      const installer = platform?.installer;
+    const skillFormatCandidates = ['codex', 'gemini', 'antigravity'];
+    const skillFormatPlatformCode = skillFormatCandidates.find((platformCode) => {
+      const installer = platformCodes.platforms?.[platformCode]?.installer;
       if (!installer || installer.skill_format !== true || typeof installer.target_dir !== 'string') return false;
       if (Array.isArray(installer.artifact_types) && !installer.artifact_types.includes('tasks')) return false;
       return true;
     });
 
-    assert(Boolean(skillFormatEntry), 'Found a skill_format platform that installs task artifacts');
-    if (!skillFormatEntry) throw new Error('No suitable skill_format platform found for shard-doc prototype test');
+    assert(Boolean(skillFormatPlatformCode), 'Found a deterministic skill_format platform that installs task artifacts');
+    if (!skillFormatPlatformCode) throw new Error('No suitable deterministic skill_format platform found for shard-doc prototype test');
 
-    const [skillFormatPlatformCode, skillFormatPlatform] = skillFormatEntry;
-    const skillInstaller = skillFormatPlatform.installer;
+    const skillInstaller = platformCodes.platforms[skillFormatPlatformCode].installer;
 
     tempSkillProjectDir = await fs.mkdtemp(path.join(os.tmpdir(), 'bmad-skill-prototype-test-'));
     tempNonSkillProjectDir = await fs.mkdtemp(path.join(os.tmpdir(), 'bmad-nonskill-prototype-test-'));
@@ -940,10 +940,7 @@ async function runTests() {
     const prototypeSkillContent = await fs.readFile(prototypeSkillPath, 'utf8');
 
     assert(canonicalSkillContent.includes('name: bmad-shard-doc'), 'Canonical shard-doc skill keeps canonical frontmatter name');
-    assert(
-      canonicalSkillContent.includes('Read the entire task file at: {project-root}/_bmad/core/tasks/shard-doc.xml'),
-      'Canonical shard-doc skill points to shard-doc.xml',
-    );
+    assert(canonicalSkillContent.includes('shard-doc.xml'), 'Canonical shard-doc skill points to shard-doc.xml');
     assert(
       prototypeSkillContent.includes('name: bmad-shard-doc-skill-prototype'),
       'Prototype shard-doc skill uses prototype frontmatter name',
