@@ -96,6 +96,8 @@ async function createShardDocPrototypeFixture() {
     [
       'shard-doc.xml:',
       '  canonicalId: bmad-shard-doc',
+      '  prototypeIds:',
+      '    - bmad-shard-doc-skill-prototype',
       '  type: task',
       '  description: "Splits large markdown documents into smaller, organized files based on sections"',
       '',
