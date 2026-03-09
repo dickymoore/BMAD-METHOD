@@ -514,16 +514,50 @@ LOAD and execute from: {project-root}/{{bmadFolderName}}/{{path}}
   async writeShardDocPrototypeSkill(targetPath, bmadDir, skillName) {
     if (!bmadDir || skillName !== 'bmad-shard-doc') return;
 
-    const prototypeId = 'bmad-shard-doc-skill-prototype';
-    const sourceSkillPath = path.join(bmadDir, 'core', 'tasks', prototypeId, 'SKILL.md');
-    if (!(await fs.pathExists(sourceSkillPath))) return;
+    const prototypeIds = await this.getShardDocPrototypeIds(bmadDir);
+    for (const prototypeId of prototypeIds) {
+      if (typeof prototypeId !== 'string') continue;
+      const normalizedId = prototypeId.trim();
+      if (!normalizedId || normalizedId !== path.basename(normalizedId)) continue;
 
-    const sourceSkillContent = await fs.readFile(sourceSkillPath, 'utf8');
-    if (!sourceSkillContent) return;
+      const sourceSkillPath = path.join(bmadDir, 'core', 'tasks', normalizedId, 'SKILL.md');
+      if (!(await fs.pathExists(sourceSkillPath))) continue;
 
-    const prototypeDir = path.join(targetPath, prototypeId);
-    await this.ensureDir(prototypeDir);
-    await this.writeFile(path.join(prototypeDir, 'SKILL.md'), sourceSkillContent);
+      const sourceSkillContent = await fs.readFile(sourceSkillPath, 'utf8');
+      if (!sourceSkillContent) continue;
+
+      const prototypeDir = path.join(targetPath, normalizedId);
+      await this.ensureDir(prototypeDir);
+      await this.writeFile(path.join(prototypeDir, 'SKILL.md'), sourceSkillContent);
+    }
+  }
+
+  /**
+   * Read shard-doc prototype IDs from core/tasks/bmad-skill-manifest.yaml.
+   * Falls back to the legacy single prototype ID when linkage is not present.
+   * @param {string} bmadDir - Installed bmad directory
+   * @returns {Promise<string[]>} Prototype IDs to copy
+   */
+  async getShardDocPrototypeIds(bmadDir) {
+    const defaultIds = ['bmad-shard-doc-skill-prototype'];
+    const manifestPath = path.join(bmadDir, 'core', 'tasks', 'bmad-skill-manifest.yaml');
+    if (!(await fs.pathExists(manifestPath))) return defaultIds;
+
+    try {
+      const content = await fs.readFile(manifestPath, 'utf8');
+      const parsed = yaml.parse(content);
+      const ids = parsed?.['shard-doc.xml']?.prototypeIds;
+      if (!Array.isArray(ids)) return defaultIds;
+
+      const normalized = ids
+        .filter((id) => typeof id === 'string')
+        .map((id) => id.trim())
+        .filter(Boolean);
+
+      return normalized.length ? normalized : defaultIds;
+    } catch {
+      return defaultIds;
+    }
   }
 
   /**
