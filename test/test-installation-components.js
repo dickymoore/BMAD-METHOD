@@ -3288,8 +3288,8 @@ async function runTests() {
     assert(automatorInfo42.type === 'experimental', 'BMad Automator is marked experimental');
     assert(automatorInfo42.sourceRoot === 'payload/.claude/skills', 'BMad Automator uses source-root for pure skill payload');
     assert(
-      automatorInfo42.installTargets.length === 1 && automatorInfo42.installTargets.includes('claude-code'),
-      'BMad Automator is limited to Claude Code skill installation',
+      automatorInfo42.installTargets.includes('claude-code') && automatorInfo42.installTargets.includes('codex'),
+      'BMad Automator declares Claude Code and Codex install targets',
     );
     const normalizedInfo42 = externalManager42._normalizeModule({
       name: 'bad-shapes',
@@ -3330,12 +3330,12 @@ async function runTests() {
       'Codex setup still installs supported core skills',
     );
     assert(
-      !(await fs.pathExists(path.join(tempProjectDir42, '.agents', 'skills', 'bmad-story-automator', 'SKILL.md'))),
-      'Codex setup skips Claude Code-only automator skill',
+      await fs.pathExists(path.join(tempProjectDir42, '.agents', 'skills', 'bmad-story-automator', 'SKILL.md')),
+      'Codex setup installs automator skill because Codex is an explicit target',
     );
     assert(
-      !(await fs.pathExists(path.join(tempProjectDir42, '.agents', 'skills', 'bmad-story-automator-review', 'SKILL.md'))),
-      'Codex setup skips Claude Code-only automator review skill',
+      await fs.pathExists(path.join(tempProjectDir42, '.agents', 'skills', 'bmad-story-automator-review', 'SKILL.md')),
+      'Codex setup installs automator review skill because Codex is an explicit target',
     );
 
     const escapeRoot42 = await fs.mkdtemp(path.join(os.tmpdir(), 'bmad-source-root-'));

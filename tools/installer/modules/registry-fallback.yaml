@@ -56,19 +56,20 @@ modules:
     source-root: payload/.claude/skills
     code: bma
     name: "BMad Automator (Experimental)"
-    description: "Experimental pure-skill story automation. Runs only from Claude Code; supports Claude Code and Codex worker sessions; requires tmux on macOS."
+    description: "Experimental pure-skill story automation. Runs from Claude Code and Codex entrypoints; supports Claude Code and Codex worker sessions; requires tmux on macOS."
     defaultSelected: false
     type: experimental
     npmPackage: bmad-story-automator
     default_channel: stable
     install-targets:
       - claude-code
+      - codex
     worker-targets:
       - claude-code
       - codex
     requirements:
-      - Claude Code entrypoint
+      - Claude Code or Codex entrypoint
       - Claude Code or Codex worker sessions
       - tmux
       - macOS
-    install-note: "Experimental: BMad Automator only works from Claude Code. It currently supports Claude Code and Codex worker sessions, and requires tmux on macOS."
+    install-note: "Experimental: BMad Automator supports Claude Code and Codex entrypoints, Claude Code and Codex worker sessions, and requires tmux on macOS."

@@ -79,15 +79,15 @@ Automates the BMad story build loop with a pure skill bundle sourced from the se
 - **npm:** [`bmad-story-automator`](https://www.npmjs.com/package/bmad-story-automator)
 - **GitHub:** [bmad-code-org/bmad-automator](https://github.com/bmad-code-org/bmad-automator)
 
-:::caution[Experimental Claude Code-only entrypoint]
-BMad Automator only runs from Claude Code. It currently supports Claude Code and Codex worker sessions, and requires tmux on macOS.
+:::caution[Experimental Claude Code and Codex entrypoints]
+BMad Automator runs from Claude Code and Codex entrypoints. It currently supports Claude Code and Codex worker sessions, and requires tmux on macOS.
 :::
 
 **Provides:**
 
 - Story build-cycle automation across story creation, development, QA automation, review, and retrospective
 - Resumable tmux orchestration state
-- Claude Code entry skill plus Claude Code/Codex worker-session coordination
+- Claude Code/Codex entry skills plus Claude Code/Codex worker-session coordination
 
 ## Community Modules
 
