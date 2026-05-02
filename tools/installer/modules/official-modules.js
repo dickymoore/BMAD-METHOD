@@ -103,6 +103,54 @@ class OfficialModules {
   }
 
   /**
+   * Merge extra runtime assets for external modules whose installed skill
+   * bundle spans more than the declared source-root payload.
+   * @param {string} moduleName - Module code being installed
+   * @param {string} sourcePath - Resolved module source path
+   * @param {string} targetPath - Installed module target path under _bmad/
+   */
+  async mergeExternalRuntimeAssets(moduleName, sourcePath, targetPath) {
+    const moduleInfo = await this.externalModuleManager.getModuleByCode(moduleName);
+    // Keep this intentionally narrow: Automator declares only the pure-skill
+    // payload as source-root, but its installed story skill also requires the
+    // runtime helper/package files that live outside payload/.claude/skills.
+    // Other external modules still use the normal payload-only install path.
+    if (!moduleInfo || moduleInfo.code !== 'bma' || moduleInfo.sourceRoot !== 'payload/.claude/skills') {
+      return;
+    }
+
+    const sourceRootParts = moduleInfo.sourceRoot.split(/[\\/]+/).filter(Boolean);
+    const repoRoot = path.resolve(sourcePath, ...sourceRootParts.map(() => '..'));
+    const storyTarget = path.join(targetPath, 'bmad-story-automator');
+
+    if (!(await fs.pathExists(storyTarget))) {
+      return;
+    }
+
+    const runtimePaths = [
+      // Mirror the standalone Automator installer so native Codex/Claude
+      // targets receive the same complete story skill bundle.
+      { type: 'file', source: path.join(repoRoot, 'source', 'pyproject.toml'), target: path.join(storyTarget, 'pyproject.toml') },
+      { type: 'file', source: path.join(repoRoot, 'source', 'README.md'), target: path.join(storyTarget, 'README.md') },
+      { type: 'file', source: path.join(repoRoot, 'source', 'LICENSE'), target: path.join(storyTarget, 'LICENSE') },
+      { type: 'dir', source: path.join(repoRoot, 'source', 'scripts'), target: path.join(storyTarget, 'scripts') },
+      { type: 'dir', source: path.join(repoRoot, 'source', 'src'), target: path.join(storyTarget, 'src') },
+    ];
+
+    for (const runtimePath of runtimePaths) {
+      if (!(await fs.pathExists(runtimePath.source))) {
+        throw new Error(`Automator runtime asset missing from external module source: ${runtimePath.source}`);
+      }
+      if (runtimePath.type === 'dir') {
+        await this.copyDirectory(runtimePath.source, runtimePath.target, true);
+      } else {
+        await fs.ensureDir(path.dirname(runtimePath.target));
+        await this.copyFile(runtimePath.source, runtimePath.target, true);
+      }
+    }
+  }
+
+  /**
    * List all available built-in modules (core and bmm).
    * All other modules come from external-official-modules.yaml
    * @returns {Object} Object with modules array
@@ -301,6 +349,7 @@ class OfficialModules {
     }
 
     await this.copyModuleWithFiltering(sourcePath, targetPath, fileTrackingCallback, options.moduleConfig);
+    await this.mergeExternalRuntimeAssets(moduleName, sourcePath, targetPath);
 
     if (!options.skipModuleInstaller) {
       await this.createModuleDirectories(moduleName, bmadDir, options);

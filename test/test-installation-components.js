@@ -119,7 +119,49 @@ async function createAutomatorBmadFixture() {
     await fs.writeFile(path.join(skillDir, 'workflow.md'), `# ${skillName}\n\nAutomator workflow body.\n`);
   }
 
+  await fs.ensureDir(path.join(fixtureDir, 'bma', 'bmad-story-automator', 'scripts'));
+  await fs.writeFile(
+    path.join(fixtureDir, 'bma', 'bmad-story-automator', 'scripts', 'story-automator'),
+    ['#!/usr/bin/env bash', 'echo automator'].join('\n'),
+  );
+  await fs.ensureDir(path.join(fixtureDir, 'bma', 'bmad-story-automator', 'src', 'story_automator'));
+  await fs.writeFile(path.join(fixtureDir, 'bma', 'bmad-story-automator', 'src', 'story_automator', '__init__.py'), '__all__ = []\n');
+  await fs.writeFile(path.join(fixtureDir, 'bma', 'bmad-story-automator', 'pyproject.toml'), '[project]\nname = "bmad-story-automator"\n');
+  await fs.writeFile(path.join(fixtureDir, 'bma', 'bmad-story-automator', 'README.md'), '# Automator\n');
+  await fs.writeFile(path.join(fixtureDir, 'bma', 'bmad-story-automator', 'LICENSE'), 'Test license\n');
+
   return fixtureDir;
+}
+
+async function createExternalAutomatorRepoFixture() {
+  const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'bmad-automator-repo-'));
+  const storyPayloadDir = path.join(repoRoot, 'payload', '.claude', 'skills', 'bmad-story-automator');
+  const reviewPayloadDir = path.join(repoRoot, 'payload', '.claude', 'skills', 'bmad-story-automator-review');
+  const sourceRoot = path.join(repoRoot, 'source');
+
+  await fs.ensureDir(storyPayloadDir);
+  await fs.ensureDir(reviewPayloadDir);
+  await fs.ensureDir(path.join(sourceRoot, 'scripts'));
+  await fs.ensureDir(path.join(sourceRoot, 'src', 'story_automator'));
+
+  await fs.writeFile(
+    path.join(storyPayloadDir, 'SKILL.md'),
+    ['---', 'name: bmad-story-automator', 'description: Automator skill', '---', '', 'Automator body.'].join('\n'),
+  );
+  await fs.writeFile(path.join(storyPayloadDir, 'workflow.md'), '# Automator workflow\n');
+  await fs.writeFile(
+    path.join(reviewPayloadDir, 'SKILL.md'),
+    ['---', 'name: bmad-story-automator-review', 'description: Automator review skill', '---', '', 'Review body.'].join('\n'),
+  );
+  await fs.writeFile(path.join(reviewPayloadDir, 'workflow.md'), '# Review workflow\n');
+
+  await fs.writeFile(path.join(sourceRoot, 'scripts', 'story-automator'), '#!/usr/bin/env bash\necho helper\n');
+  await fs.writeFile(path.join(sourceRoot, 'src', 'story_automator', '__init__.py'), '__all__ = []\n');
+  await fs.writeFile(path.join(sourceRoot, 'pyproject.toml'), '[project]\nname = "bmad-story-automator"\n');
+  await fs.writeFile(path.join(sourceRoot, 'README.md'), '# Automator\n');
+  await fs.writeFile(path.join(sourceRoot, 'LICENSE'), 'Test license\n');
+
+  return repoRoot;
 }
 
 async function createSkillCollisionFixture() {
@@ -3337,6 +3379,10 @@ async function runTests() {
       await fs.pathExists(path.join(tempProjectDir42, '.agents', 'skills', 'bmad-story-automator-review', 'SKILL.md')),
       'Codex setup installs automator review skill because Codex is an explicit target',
     );
+    assert(
+      await fs.pathExists(path.join(tempProjectDir42, '.agents', 'skills', 'bmad-story-automator', 'scripts', 'story-automator')),
+      'Codex setup materializes the automator helper script in the native skills target',
+    );
 
     const escapeRoot42 = await fs.mkdtemp(path.join(os.tmpdir(), 'bmad-source-root-'));
     const escapeRepo42 = path.join(escapeRoot42, 'repo');
@@ -3380,6 +3426,67 @@ async function runTests() {
   } finally {
     if (tempProjectDir42) await fs.remove(tempProjectDir42).catch(() => {});
     if (installedBmadDir42) await fs.remove(path.dirname(installedBmadDir42)).catch(() => {});
+  }
+
+  console.log('');
+
+  // ============================================================
+  // Test 46: External Automator Runtime Bundle Install
+  // ============================================================
+  console.log(`${colors.yellow}Test Suite 46: External Automator Runtime Bundle${colors.reset}\n`);
+
+  let externalAutomatorRepo43 = null;
+  let installedBmadDir43 = null;
+  try {
+    externalAutomatorRepo43 = await createExternalAutomatorRepoFixture();
+    const fixtureRoot43 = await fs.mkdtemp(path.join(os.tmpdir(), 'bmad-external-automator-'));
+    installedBmadDir43 = path.join(fixtureRoot43, '_bmad');
+    await fs.ensureDir(path.join(installedBmadDir43, '_config'));
+
+    const officialModules43 = new OfficialModules();
+    officialModules43.externalModuleManager.getModuleByCode = async (code) =>
+      code === 'bma'
+        ? {
+            code: 'bma',
+            builtIn: false,
+            sourceRoot: 'payload/.claude/skills',
+            npmPackage: 'bmad-story-automator',
+          }
+        : null;
+    officialModules43.externalModuleManager.findExternalModuleSource = async (code) =>
+      code === 'bma' ? path.join(externalAutomatorRepo43, 'payload', '.claude', 'skills') : null;
+    officialModules43.externalModuleManager.getResolution = () => null;
+
+    // This regression matches the real Codex failure mode: external-module
+    // install copies only payload/.claude/skills unless the installer also
+    // merges Automator's runtime helper bundle into _bmad/bma.
+    const installResult43 = await officialModules43.install('bma', installedBmadDir43, null, {
+      silent: true,
+      skipModuleInstaller: true,
+    });
+
+    assert(installResult43.success === true, 'External automator module install succeeds from payload source-root');
+    assert(
+      await fs.pathExists(path.join(installedBmadDir43, 'bma', 'bmad-story-automator', 'scripts', 'story-automator')),
+      'External automator install merges the helper script into _bmad',
+    );
+    assert(
+      await fs.pathExists(path.join(installedBmadDir43, 'bma', 'bmad-story-automator', 'src', 'story_automator', '__init__.py')),
+      'External automator install merges the runtime package into _bmad',
+    );
+    assert(
+      await fs.pathExists(path.join(installedBmadDir43, 'bma', 'bmad-story-automator', 'pyproject.toml')),
+      'External automator install merges pyproject into _bmad',
+    );
+    assert(
+      !(await fs.pathExists(path.join(installedBmadDir43, 'bma', 'bmad-story-automator-review', 'scripts', 'story-automator'))),
+      'External automator install does not add the runtime helper to the review skill',
+    );
+  } catch (error) {
+    assert(false, `External automator runtime bundle install test succeeds: ${error.message}`);
+  } finally {
+    if (externalAutomatorRepo43) await fs.remove(externalAutomatorRepo43).catch(() => {});
+    if (installedBmadDir43) await fs.remove(path.dirname(installedBmadDir43)).catch(() => {});
   }
 
   console.log('');
