@@ -10,7 +10,7 @@ Use `module-definition` for conventional module repos with `module.yaml`.
 Use `source-root` for pure skill bundles that should be copied directly into `_bmad/<module-code>/`.
 This keeps the external repo as the source of truth and avoids vendoring generated skill payloads into BMAD-METHOD.
 
-Experimental modules can set `type: experimental` and `install-targets` to limit which IDE integrations receive their skills.
+Experimental modules can set `type: experimental` and `install-targets` to limit which IDE integrations receive their skills. For BMad Automator specifically, the current support matrix is Claude Code and Codex entrypoints, Claude Code and Codex worker sessions, and macOS, Linux, or Windows via WSL.
 
 ## Post-Install Notes
 

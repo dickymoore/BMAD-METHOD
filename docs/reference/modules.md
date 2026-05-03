@@ -80,7 +80,7 @@ Automates the BMad story build loop with a pure skill bundle sourced from the se
 - **GitHub:** [bmad-code-org/bmad-automator](https://github.com/bmad-code-org/bmad-automator)
 
 :::caution[Experimental Claude Code and Codex entrypoints]
-BMad Automator runs from Claude Code and Codex entrypoints. It currently supports Claude Code and Codex worker sessions, and requires tmux on macOS.
+BMad Automator runs from Claude Code and Codex entrypoints. It currently supports Claude Code and Codex worker sessions on macOS, Linux, and Windows via WSL. Native Windows support is not included yet.
 :::
 
 **Provides:**

@@ -39,7 +39,7 @@ The interactive flow asks you five things:
 Accept the defaults and you land on the latest stable release of every module, configured for your chosen tool.
 
 :::caution[BMad Automator constraints]
-`bma` installs runnable Automator skills for Claude Code and Codex entrypoints. Automator worker sessions currently require `tmux` on macOS.
+`bma` installs runnable Automator skills for Claude Code and Codex entrypoints. Automator currently supports Claude Code and Codex worker sessions on macOS, Linux, and Windows via WSL. Native Windows support is not included yet.
 :::
 
 :::tip[Just want the newest prerelease?]
