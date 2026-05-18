@@ -273,6 +273,18 @@ class UI {
           selectedModules.unshift('core');
         }
 
+        const retainedModuleResult = await this._retainUnavailableInstalledModules(selectedModules, installedModuleIds, bmadDir, {
+          preserveUnselected: options.yes && !options.modules,
+        });
+        selectedModules = retainedModuleResult.selectedModules;
+        const preserveModules = retainedModuleResult.preserveModules;
+
+        if (preserveModules.length > 0) {
+          await prompts.log.warn(
+            `Retaining ${preserveModules.length} installed module(s) with no available source: ${preserveModules.join(', ')}`,
+          );
+        }
+
         // For existing installs, resolve per-module update decisions BEFORE
         // we clone anything. Reads the existing manifest's recorded channel
         // per module and prompts the user on available upgrades (patch/minor
@@ -317,6 +329,7 @@ class UI {
           setOverrides,
           skipPrompts: options.yes || false,
           channelOptions,
+          _preserveModules: preserveModules,
         };
       }
     }
@@ -1254,6 +1267,42 @@ class UI {
     }
 
     return defaultModules;
+  }
+
+  async _retainUnavailableInstalledModules(selectedModules, installedModuleIds, bmadDir, options = {}) {
+    const { OfficialModules } = require('./modules/official-modules');
+    const officialCodes = new Set(['core']);
+
+    const builtInModules = (await new OfficialModules().listAvailable()).modules || [];
+    for (const mod of builtInModules) {
+      officialCodes.add(mod.id);
+    }
+
+    const externalManager = new ExternalModuleManager();
+    const registryModules = await externalManager.listAvailable();
+    for (const mod of registryModules) {
+      officialCodes.add(mod.code);
+    }
+
+    const { CustomModuleManager } = require('./modules/custom-module-manager');
+    const customMgr = new CustomModuleManager();
+    const selectedSet = new Set(selectedModules);
+    const preserveModules = [];
+
+    for (const moduleId of installedModuleIds) {
+      if (moduleId === 'core') continue;
+      if (!selectedSet.has(moduleId) && !options.preserveUnselected) continue;
+      if (officialCodes.has(moduleId)) continue;
+
+      const customSource = await customMgr.findModuleSourceByCode(moduleId, { bmadDir });
+      if (!customSource) {
+        preserveModules.push(moduleId);
+      }
+    }
+
+    const preservedSet = new Set(preserveModules);
+    const selected = selectedModules.filter((moduleId) => !preservedSet.has(moduleId));
+    return { selectedModules: selected, preserveModules };
   }
 
   /**

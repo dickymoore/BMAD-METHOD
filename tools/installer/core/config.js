@@ -13,6 +13,7 @@ class Config {
     coreConfig,
     moduleConfigs,
     quickUpdate,
+    preserveModules,
     channelOptions,
     setOverrides,
   }) {
@@ -25,6 +26,7 @@ class Config {
     this.coreConfig = coreConfig;
     this.moduleConfigs = moduleConfigs;
     this._quickUpdate = quickUpdate;
+    this.preserveModules = Object.freeze([...(preserveModules || [])]);
     // channelOptions carry a Map + Set; don't deep-freeze.
     this.channelOptions = channelOptions || null;
     // Parsed `--set <module>.<key>=<value>` overrides, applied as a TOML
@@ -56,6 +58,7 @@ class Config {
       coreConfig: userInput.coreConfig || {},
       moduleConfigs: userInput.moduleConfigs || null,
       quickUpdate: userInput._quickUpdate || false,
+      preserveModules: userInput._preserveModules || [],
       channelOptions: userInput.channelOptions || null,
       setOverrides: userInput.setOverrides || {},
     });

@@ -15,10 +15,12 @@ const path = require('node:path');
 const os = require('node:os');
 const fs = require('../tools/installer/fs-native');
 const { Installer } = require('../tools/installer/core/installer');
+const { Config } = require('../tools/installer/core/config');
 const { ManifestGenerator } = require('../tools/installer/core/manifest-generator');
 const { OfficialModules } = require('../tools/installer/modules/official-modules');
 const { IdeManager } = require('../tools/installer/ide/manager');
 const { clearCache, loadPlatformCodes } = require('../tools/installer/ide/platform-codes');
+const { UI } = require('../tools/installer/ui');
 
 // ANSI colors
 const colors = {
@@ -240,6 +242,105 @@ async function runTests() {
     } finally {
       if (sourceRootFixture) await fs.remove(sourceRootFixture.repoRoot).catch(() => {});
       if (tempProjectDir) await fs.remove(tempProjectDir).catch(() => {});
+    }
+  }
+
+  console.log('');
+
+  // ============================================================
+  // Test 4c: Retained stale modules
+  // ============================================================
+  console.log(`${colors.yellow}Test Suite 4c: Retained Stale Modules${colors.reset}\n`);
+
+  {
+    const staleCode = 'stale-cache-module-for-test';
+    const registryCode = 'cis';
+    const legacySkillId = 'legacy-stale-skill';
+    let fixtureRoot;
+    let cacheRoot;
+    const previousExternalCache = process.env.BMAD_EXTERNAL_MODULES_CACHE;
+    try {
+      fixtureRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'bmad-stale-module-project-'));
+      const bmadDir = path.join(fixtureRoot, '_bmad');
+      const retainedFile = path.join(bmadDir, staleCode, 'module-help.csv');
+      await fs.ensureDir(path.dirname(retainedFile));
+      await fs.writeFile(retainedFile, 'command,description\nlegacy,Retained help\n');
+
+      const configDir = path.join(bmadDir, '_config');
+      await fs.ensureDir(configDir);
+      await fs.writeFile(
+        path.join(configDir, 'skill-manifest.csv'),
+        [
+          'canonicalId,name,description,module,path',
+          `"${legacySkillId}","legacy-stale-skill","Retained stale skill","${staleCode}","_bmad/${staleCode}/skills/${legacySkillId}/SKILL.md"`,
+          '',
+        ].join('\n'),
+      );
+
+      const ideSkill = path.join(fixtureRoot, '.agents', 'skills', legacySkillId, 'SKILL.md');
+      await fs.ensureDir(path.dirname(ideSkill));
+      await fs.writeFile(ideSkill, 'existing IDE skill should survive\n');
+
+      cacheRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'bmad-stale-external-cache-'));
+      process.env.BMAD_EXTERNAL_MODULES_CACHE = cacheRoot;
+      await fs.ensureDir(path.join(cacheRoot, staleCode));
+      await fs.writeFile(path.join(cacheRoot, staleCode, 'module.yaml'), ['code: ' + staleCode, 'name: Stale Cache Module'].join('\n'));
+
+      const ui = new UI();
+      const registrySplit = await ui._retainUnavailableInstalledModules(['core', registryCode], new Set(['core', registryCode]), bmadDir);
+      assert(
+        registrySplit.selectedModules.includes(registryCode) && !registrySplit.preserveModules.includes(registryCode),
+        'Registry module remains selected when external cache is missing',
+      );
+
+      const split = await ui._retainUnavailableInstalledModules(['core', staleCode], new Set(['core', staleCode]), bmadDir);
+      assert(
+        !split.selectedModules.includes(staleCode) && split.preserveModules.includes(staleCode),
+        'Stale external cache is retained, not selected for update',
+      );
+
+      const installer = new Installer();
+      const config = Config.build({ directory: fixtureRoot, modules: ['core'], _preserveModules: [staleCode] });
+      await installer._removeDeselectedModules({ moduleIds: ['core', staleCode] }, config, {
+        moduleDir: (moduleId) => path.join(bmadDir, moduleId),
+      });
+      assert(await fs.pathExists(retainedFile), 'Retained module directory is not removed');
+
+      const previousRows = await installer._readSkillManifestRows(bmadDir);
+      const previousSkillIds = installer._getPreviousSkillIdsForCleanup(previousRows, [staleCode]);
+      assert(!previousSkillIds.has(legacySkillId), 'Retained module skill ID is not queued for IDE cleanup');
+
+      await installer._trackPreservedModuleFiles(bmadDir, [staleCode]);
+      const manifestGen = new ManifestGenerator();
+      await manifestGen.generateManifests(bmadDir, ['core'], [...installer.installedFiles], {
+        ides: [],
+        preservedModules: [staleCode],
+        moduleConfigs: {},
+      });
+      await installer._appendPreservedSkillManifestRows(bmadDir, previousRows, [staleCode]);
+      const filesCsv = await fs.readFile(path.join(bmadDir, '_config', 'files-manifest.csv'), 'utf8');
+      assert(filesCsv.includes(`${staleCode}/module-help.csv`), 'Retained module file stays in files-manifest.csv');
+
+      const skillCsv = await fs.readFile(path.join(bmadDir, '_config', 'skill-manifest.csv'), 'utf8');
+      assert(skillCsv.includes(legacySkillId), 'Retained module skill row stays in skill-manifest.csv');
+
+      clearCache();
+      const ideManager = new IdeManager();
+      await ideManager.ensureInitialized();
+      const ideResult = await ideManager.setup('codex', fixtureRoot, bmadDir, {
+        silent: true,
+        previousSkillIds,
+      });
+      assert(ideResult.success === true, 'IDE setup succeeds with retained stale skill row');
+      assert(await fs.pathExists(ideSkill), 'IDE skill directory survives retained-module cleanup');
+    } finally {
+      if (previousExternalCache === undefined) {
+        delete process.env.BMAD_EXTERNAL_MODULES_CACHE;
+      } else {
+        process.env.BMAD_EXTERNAL_MODULES_CACHE = previousExternalCache;
+      }
+      if (fixtureRoot) await fs.remove(fixtureRoot).catch(() => {});
+      if (cacheRoot) await fs.remove(cacheRoot).catch(() => {});
     }
   }
 
